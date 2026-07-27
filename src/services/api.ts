@@ -4,13 +4,13 @@ import { Platform } from 'react-native';
 const STORAGE_KEY_SERVER = 'resonance:server_url';
 
 const CANDIDATE_URLS = [
-  'https://resonance-api.loca.lt/api',
   'http://192.168.60.114:4000/api',
   'http://10.0.2.2:4000/api',
+  'https://resonance-api.loca.lt/api',
   'http://127.0.0.1:4000/api',
 ];
 
-let currentBaseUrl = 'https://resonance-api.loca.lt/api';
+let currentBaseUrl = Platform.OS === 'android' ? 'http://192.168.60.114:4000/api' : 'http://127.0.0.1:4000/api';
 
 export async function initApi() {
   try {
@@ -61,8 +61,9 @@ async function request(method: string, path: string, body?: any) {
     if (res.status === 204) return null;
     return await res.json();
   } catch (err: any) {
-    // If it's a HTTP error (like 404/500), don't try candidate URLs
-    if (err.status) throw err;
+    // If it's a standard HTTP application error (like 400/401/404/500), don't try candidate URLs.
+    // But if it's 502/503/504 (tunnel gateway error), fall back to other candidate URLs!
+    if (err.status && err.status !== 502 && err.status !== 503 && err.status !== 504) throw err;
 
     // Network error: Auto-discover working server URL among candidates
     for (const candidate of CANDIDATE_URLS) {
