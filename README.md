@@ -1,56 +1,57 @@
-# Welcome to your Expo app 👋
+# 🎵 Resonance Native — Mobile Audio Player & YouTube Music Library
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+<div align="center">
+  <h3>High-Performance YouTube Music Player & Library for React Native</h3>
+  <p>Stream, search, curate playlists, and sync your YouTube music collection with Supabase Cloud Postgres.</p>
+</div>
 
-## Get started
+---
 
-1. Install dependencies
+## ✨ Features
 
-   ```bash
-   npm install
-   ```
+- **🎵 Master Library**: Browse all imported tracks with instant playback, track filtering, and playlist management.
+- **🔍 YouTube Search**: Search YouTube songs and artists live, with 1-click preview streaming and single-tap library ingestion.
+- **📑 Playlists & Hero Controls**: Create custom playlists, shuffle, cycle repeat modes (`Loop Off` ➔ `Loop All` ➔ `Loop Single`), and filter tracks within playlists.
+- **🔀 Super Shuffle**: Deduplicated cross-playlist shuffle powered by backend algorithm.
+- **🔗 Link Resolver**: Paste single video URLs or full YouTube playlist links to extract audio into your library.
+- **🎧 Persistent Player**: Glassmorphic Mini-Player bar and expandable Full-Screen Player overlay with artwork glow, -10s/+10s seek controls, timeline scrubber, and active queue drawer.
+- **⚡ Cloud Postgres & Auto-Discovery**: Powered by Supabase Cloud Postgres with automatic server connection auto-discovery and fallback.
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## 🛠️ Tech Stack
 
-In the output, you'll find options to open the app in a
+- **Framework**: [Expo SDK 57](https://expo.dev/) + [React Native 0.86](https://reactnative.dev/)
+- **Navigation**: [Expo Router v57](https://docs.expo.dev/router/introduction/) (File-based tabs & stack routing)
+- **Audio Engine**: `expo-audio` (Background audio playback & lock screen media controls)
+- **Database & Sync**: [Supabase Cloud Postgres](https://supabase.com/) + Drizzle ORM
+- **UI & Icons**: `@expo/vector-icons`, `react-native-safe-area-context`, custom dark design system tokens (`#141315` background, Coral Red `#ff5959` accent).
+- **Package Manager**: `pnpm`
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🚀 Getting Started
 
-## Get a fresh project
+### 1. Prerequisites
+Ensure the **Resonance Backend** server (`resonance-backend`) is running.
 
-When you're ready, run:
-
+### 2. Installation
 ```bash
-npm run reset-project
+git clone https://github.com/BasithDev/resonance-native.git
+cd resonance-native
+pnpm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 3. Running the App
+```bash
+pnpm start
+# or for tunnel mode across Wi-Fi networks:
+pnpm expo start --tunnel
+```
 
-### Other setup steps
+Scan the QR code with **Expo Go** on iOS or Android!
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+---
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 📱 Server Connection
+The app defaults to your local or cloud backend server. You can change the backend host anytime by tapping the **Hardware Chip icon** at the top right of the Library screen or via **Settings ➔ Backend Server URL**.
