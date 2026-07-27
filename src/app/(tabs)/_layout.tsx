@@ -38,10 +38,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="playlists"
+        name="playlists/index"
         options={{
           title: 'Playlists',
           tabBarIcon: ({ color, size }) => <Ionicons name="albums" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="playlists/[id]"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
