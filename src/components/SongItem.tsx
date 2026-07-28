@@ -64,24 +64,21 @@ export function SongItem({
         </View>
       )}
 
-      {/* Add Button Embedded Inside Card */}
+      {/* Add Button Embedded Inside Card (Icon Only) */}
       {onAddPress && (
         <TouchableOpacity
           onPress={(e) => {
             e.stopPropagation();
             onAddPress();
           }}
-          style={styles.addBtnInside}
+          style={styles.addBtnInsideIconOnly}
           disabled={isAddLoading}
           activeOpacity={0.8}
         >
           {isAddLoading ? (
             <ActivityIndicator size="small" color="#ffffff" />
           ) : (
-            <>
-              <Ionicons name="add" size={16} color="#ffffff" />
-              <Text style={styles.addBtnInsideText}>Add</Text>
-            </>
+            <Ionicons name="add" size={20} color="#ffffff" />
           )}
         </TouchableOpacity>
       )}
@@ -146,19 +143,13 @@ const styles = StyleSheet.create({
   moreButton: {
     padding: 6,
   },
-  addBtnInside: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  addBtnInsideIconOnly: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: Theme.borderRadius.full,
-    gap: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 4,
-  },
-  addBtnInsideText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
   },
 });

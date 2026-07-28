@@ -53,12 +53,12 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* 2. Search */}
+      {/* 2. Playlists */}
       <Tabs.Screen
-        name="search"
+        name="playlists/index"
         options={{
-          title: 'Search',
-          tabBarIcon: ({ color, size }) => <Ionicons name="search" size={size - 2} color={color} />,
+          title: 'Playlists',
+          tabBarIcon: ({ color, size }) => <Ionicons name="albums" size={size - 2} color={color} />,
         }}
       />
 
@@ -77,12 +77,12 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* 4. Playlists */}
+      {/* 4. Backup */}
       <Tabs.Screen
-        name="playlists/index"
+        name="backup"
         options={{
-          title: 'Playlists',
-          tabBarIcon: ({ color, size }) => <Ionicons name="albums" size={size - 2} color={color} />,
+          title: 'Backup',
+          tabBarIcon: ({ color, size }) => <Ionicons name="swap-horizontal" size={size - 2} color={color} />,
         }}
       />
 
@@ -97,7 +97,7 @@ export default function TabsLayout() {
 
       {/* Hidden Stack Routes */}
       <Tabs.Screen
-        name="backup"
+        name="search"
         options={{
           href: null,
         }}
