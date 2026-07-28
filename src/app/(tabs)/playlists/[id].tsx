@@ -38,7 +38,7 @@ export default function PlaylistDetailScreen() {
   }, [id]);
 
   function handleGoBack() {
-    router.replace('/(tabs)/playlists/index' as any);
+    router.replace('/playlists' as any);
   }
 
   useFocusEffect(
@@ -104,7 +104,7 @@ export default function PlaylistDetailScreen() {
           try {
             isDeletingRef.current = true;
             await api.deletePlaylist(id as string);
-            handleGoBack();
+            router.replace('/playlists' as any);
           } catch (e: any) {
             isDeletingRef.current = false;
             console.error('Delete playlist error:', e);
