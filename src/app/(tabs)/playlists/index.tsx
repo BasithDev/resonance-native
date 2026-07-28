@@ -93,12 +93,13 @@ export default function PlaylistsScreen() {
     p.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const firstSongWithThumb = allSongs.find((s) => s.thumbnailUrl || s.coverUrl);
   const defaultAllSongsPlaylist = {
     id: 'all-songs',
     name: 'All Songs',
     songCount: allSongs.length,
     songs: allSongs,
-    coverUrl: allSongs.length > 0 ? allSongs[0].thumbnailUrl : null,
+    coverUrl: firstSongWithThumb?.thumbnailUrl || firstSongWithThumb?.coverUrl || null,
   };
 
   const gridData = searchQuery

@@ -18,7 +18,12 @@ interface PlaylistCardProps {
 
 export function PlaylistCard({ playlist, onPress, onPlayPress }: PlaylistCardProps) {
   const count = playlist.songCount ?? playlist.songs?.length ?? 0;
-  const coverUrl = playlist.coverUrl || (playlist.songs && playlist.songs.length > 0 ? playlist.songs[0].thumbnailUrl : null);
+  const firstWithThumb = playlist.songs?.find((s: any) => s.thumbnailUrl || s.coverUrl);
+  const coverUrl =
+    playlist.coverUrl ||
+    firstWithThumb?.thumbnailUrl ||
+    firstWithThumb?.coverUrl ||
+    null;
   const isAllSongs = playlist.id === 'all-songs';
 
   return (
@@ -29,12 +34,19 @@ export function PlaylistCard({ playlist, onPress, onPlayPress }: PlaylistCardPro
     >
       {/* Square Cover Artwork Box */}
       <View style={styles.squareCoverBox}>
-        {isAllSongs ? (
+        {coverUrl ? (
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: coverUrl }} style={styles.coverImage} resizeMode="cover" />
+            {isAllSongs && (
+              <View style={styles.allSongsBadge}>
+                <Ionicons name="musical-notes" size={12} color="#ffffff" />
+              </View>
+            )}
+          </View>
+        ) : isAllSongs ? (
           <View style={styles.allSongsCoverOverlay}>
             <Ionicons name="musical-notes" size={44} color="#ffffff" />
           </View>
-        ) : coverUrl ? (
-          <Image source={{ uri: coverUrl }} style={styles.coverImage} resizeMode="cover" />
         ) : (
           <View style={styles.fallbackCoverBox}>
             <Ionicons name="albums-outline" size={40} color={Theme.colors.primary} />
@@ -96,9 +108,27 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: Theme.colors.surfaceContainerHighest,
   },
+  imageContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
   coverImage: {
     width: '100%',
     height: '100%',
+  },
+  allSongsBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: Theme.colors.primary,
+    padding: 5,
+    borderRadius: Theme.borderRadius.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 3,
   },
   allSongsCoverOverlay: {
     width: '100%',

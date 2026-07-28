@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -36,12 +37,23 @@ export default function PlaylistDetailScreen() {
       setLoading(true);
       if (id === 'all-songs') {
         const data = await api.getSongs();
-        setPlaylist({ id: 'all-songs', name: 'All Songs' });
-        setSongs(data || []);
+        const songsList = data || [];
+        const firstThumb = songsList.find((s: any) => s.thumbnailUrl || s.coverUrl);
+        setPlaylist({
+          id: 'all-songs',
+          name: 'All Songs',
+          coverUrl: firstThumb?.thumbnailUrl || firstThumb?.coverUrl,
+        });
+        setSongs(songsList);
       } else {
         const data = await api.getPlaylistDetails(id as string);
-        setPlaylist(data);
-        setSongs(data?.songs || []);
+        const songsList = data?.songs || [];
+        const firstThumb = songsList.find((s: any) => s.thumbnailUrl || s.coverUrl);
+        setPlaylist({
+          ...data,
+          coverUrl: data?.coverUrl || firstThumb?.thumbnailUrl || firstThumb?.coverUrl,
+        });
+        setSongs(songsList);
       }
     } catch (e) {
       console.error(e);
@@ -84,6 +96,11 @@ export default function PlaylistDetailScreen() {
     return s.title?.toLowerCase().includes(q) || s.channel?.toLowerCase().includes(q);
   });
 
+  const heroCoverUrl =
+    playlist?.coverUrl ||
+    songs.find((s) => s.thumbnailUrl || s.coverUrl)?.thumbnailUrl ||
+    songs.find((s) => s.thumbnailUrl || s.coverUrl)?.coverUrl;
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
@@ -114,9 +131,13 @@ export default function PlaylistDetailScreen() {
             <View>
               {/* Hero Banner */}
               <View style={styles.heroSection}>
-                <View style={styles.heroIconBox}>
-                  <Ionicons name="musical-notes" size={40} color={Theme.colors.primary} />
-                </View>
+                {heroCoverUrl ? (
+                  <Image source={{ uri: heroCoverUrl }} style={styles.heroCoverImage} resizeMode="cover" />
+                ) : (
+                  <View style={styles.heroIconBox}>
+                    <Ionicons name="musical-notes" size={40} color={Theme.colors.primary} />
+                  </View>
+                )}
                 <Text style={styles.heroTitle}>{playlist?.name}</Text>
                 <Text style={styles.heroSub}>
                   {songs.length} {songs.length === 1 ? 'track' : 'tracks'}
@@ -222,6 +243,14 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.surfaceContainerHigh,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  heroCoverImage: {
+    width: 110,
+    height: 110,
+    borderRadius: Theme.borderRadius.lg,
     marginBottom: Theme.spacing.md,
     borderWidth: 1,
     borderColor: Theme.colors.border,
