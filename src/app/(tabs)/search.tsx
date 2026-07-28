@@ -103,6 +103,7 @@ export default function SearchScreen() {
             const currentId = playerTrack?.id || playerTrack?.youtubeId;
             const itemId = item.id || item.youtubeId;
             const itemMatches = currentId && itemId === currentId;
+            const isImportingThis = importingId === itemId;
 
             return (
               <SongItem
@@ -110,19 +111,8 @@ export default function SearchScreen() {
                 isCurrent={Boolean(itemMatches)}
                 isPlaying={Boolean(itemMatches && isPlaying)}
                 onPress={() => playTrack(item, results)}
-                onMorePress={() => {
-                  Alert.alert(
-                    item.title,
-                    'Options',
-                    [
-                      {
-                        text: 'Import to Library',
-                        onPress: () => handleImportTrack(item),
-                      },
-                      { text: 'Cancel', style: 'cancel' },
-                    ]
-                  );
-                }}
+                onAddPress={() => handleImportTrack(item)}
+                isAddLoading={isImportingThis}
               />
             );
           }}

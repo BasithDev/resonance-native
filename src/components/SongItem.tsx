@@ -11,6 +11,8 @@ interface SongItemProps {
   isCurrent?: boolean;
   onPress: () => void;
   onMorePress?: () => void;
+  onAddPress?: () => void;
+  isAddLoading?: boolean;
 }
 
 function formatDuration(sec?: number) {
@@ -20,7 +22,15 @@ function formatDuration(sec?: number) {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
-export function SongItem({ track, isPlaying, isCurrent, onPress, onMorePress }: SongItemProps) {
+export function SongItem({
+  track,
+  isPlaying,
+  isCurrent,
+  onPress,
+  onMorePress,
+  onAddPress,
+  isAddLoading,
+}: SongItemProps) {
   return (
     <TouchableOpacity
       style={[styles.container, isCurrent && styles.activeContainer]}
@@ -52,6 +62,28 @@ export function SongItem({ track, isPlaying, isCurrent, onPress, onMorePress }: 
             color={Theme.colors.primary}
           />
         </View>
+      )}
+
+      {/* Add Button Embedded Inside Card */}
+      {onAddPress && (
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation();
+            onAddPress();
+          }}
+          style={styles.addBtnInside}
+          disabled={isAddLoading}
+          activeOpacity={0.8}
+        >
+          {isAddLoading ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <>
+              <Ionicons name="add" size={16} color="#ffffff" />
+              <Text style={styles.addBtnInsideText}>Add</Text>
+            </>
+          )}
+        </TouchableOpacity>
       )}
 
       {/* 3-Dot Context Options Menu */}
@@ -113,5 +145,20 @@ const styles = StyleSheet.create({
   },
   moreButton: {
     padding: 6,
+  },
+  addBtnInside: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Theme.borderRadius.full,
+    gap: 3,
+    marginRight: 4,
+  },
+  addBtnInsideText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

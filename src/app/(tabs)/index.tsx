@@ -254,29 +254,12 @@ export default function LibraryScreen() {
               const isImportingThis = importingYtId === songId;
 
               return (
-                <View style={styles.ytResultRow}>
-                  <View style={{ flex: 1 }}>
-                    <SongItem
-                      track={item}
-                      onPress={() => playTrack(item, ytResults)}
-                      onMorePress={() => handleImportYtTrack(item)}
-                    />
-                  </View>
-                  <TouchableOpacity
-                    style={styles.addYtBtn}
-                    onPress={() => handleImportYtTrack(item)}
-                    disabled={isImportingThis}
-                  >
-                    {isImportingThis ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <>
-                        <Ionicons name="add" size={16} color="#ffffff" />
-                        <Text style={styles.addYtBtnText}>Add</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
+                <SongItem
+                  track={item}
+                  onPress={() => playTrack(item, ytResults)}
+                  onAddPress={() => handleImportYtTrack(item)}
+                  isAddLoading={isImportingThis}
+                />
               );
             }}
           />
