@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,11 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
-  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudio, Track } from '../../context/AudioContext';
 import { SongItem } from '../../components/SongItem';
-import { SongCard } from '../../components/SongCard';
 import { AddToPlaylistModal } from '../../components/AddToPlaylistModal';
 import { Theme } from '../../constants/theme';
 import * as api from '../../services/api';
@@ -26,11 +24,15 @@ export default function LibraryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'recent'>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [sortBy, setSortBy] = useState<'date' | 'title' | 'artist' | 'duration'>('date');
   const [selectedSong, setSelectedSong] = useState<Track | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // Dynamic YouTube Fallback Search States
+  const [ytResults, setYtResults] = useState<Track[]>([]);
+  const [isYtSearching, setIsYtSearching] = useState(false);
+  const [importingYtId, setImportingYtId] = useState<string | null>(null);
+
+  const searchTimerRef = useRef<any>(null);
 
   useEffect(() => {
     loadSongs();
@@ -55,6 +57,59 @@ export default function LibraryScreen() {
     setRefreshing(false);
   }
 
+  // Local filter matches
+  const localMatches = songs.filter((s) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      s.title?.toLowerCase().includes(q) ||
+      s.channel?.toLowerCase().includes(q)
+    );
+  });
+
+  // Dynamic search handler with YouTube fallback when localMatches is 0
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    const q = searchQuery.trim();
+    if (!q || localMatches.length > 0) {
+      setYtResults([]);
+      setIsYtSearching(false);
+      return;
+    }
+
+    if (q.length >= 2 && localMatches.length === 0) {
+      setIsYtSearching(true);
+      searchTimerRef.current = setTimeout(async () => {
+        try {
+          const res = await api.searchYouTube(q);
+          const tracks = res?.songs || res || [];
+          setYtResults(Array.isArray(tracks) ? tracks : []);
+        } catch (err) {
+          console.warn('YouTube fallback search error:', err);
+          setYtResults([]);
+        } finally {
+          setIsYtSearching(false);
+        }
+      }, 400);
+    }
+  }, [searchQuery, localMatches.length]);
+
+  async function handleImportYtTrack(track: Track) {
+    const songId = track.id || track.youtubeId;
+    if (!songId) return;
+    setImportingYtId(songId);
+    try {
+      await api.batchImportSongs([track]);
+      Alert.alert('Imported!', `"${track.title}" added to your library!`);
+      await loadSongs();
+    } catch (err: any) {
+      Alert.alert('Import Error', err.message || 'Failed to add track.');
+    } finally {
+      setImportingYtId(null);
+    }
+  }
+
   async function handleDeleteSong(song: Track) {
     if (!song.id) return;
     Alert.alert('Delete Song', `Are you sure you want to remove "${song.title}" from your library?`, [
@@ -72,26 +127,6 @@ export default function LibraryScreen() {
         },
       },
     ]);
-  }
-
-  let filteredSongs = songs.filter((s) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      s.title?.toLowerCase().includes(q) ||
-      s.channel?.toLowerCase().includes(q)
-    );
-  });
-
-  filteredSongs = [...filteredSongs].sort((a, b) => {
-    if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '');
-    if (sortBy === 'artist') return (a.channel || '').localeCompare(b.channel || '');
-    if (sortBy === 'duration') return (b.durationSec || 0) - (a.durationSec || 0);
-    return 0; // date added (default)
-  });
-
-  if (activeFilter === 'recent') {
-    filteredSongs = [...filteredSongs].slice(-20).reverse();
   }
 
   function handleSongOptions(item: Track) {
@@ -124,9 +159,12 @@ export default function LibraryScreen() {
     );
   }
 
+  const isSearchActive = searchQuery.trim().length > 0;
+  const isUsingYtFallback = isSearchActive && localMatches.length === 0;
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Branding Header with Equalizer Logo */}
+      {/* Top Branding Header */}
       <View style={styles.header}>
         <View style={styles.brandContainer}>
           <View style={styles.logoBadge}>
@@ -137,27 +175,15 @@ export default function LibraryScreen() {
             <Text style={styles.brandTagline}>PREMIUM AUDIO</Text>
           </View>
         </View>
-
-        {/* View Mode Toggle Button */}
-        <TouchableOpacity
-          style={styles.viewToggleBtn}
-          onPress={() => setViewMode((m) => (m === 'list' ? 'grid' : 'list'))}
-        >
-          <Ionicons
-            name={viewMode === 'list' ? 'grid-outline' : 'list-outline'}
-            size={22}
-            color={Theme.colors.onSurface}
-          />
-        </TouchableOpacity>
       </View>
 
-      {/* Single Aligned Row: Search Bar + Play All Icon + Super Shuffle Icon */}
+      {/* Dynamic Search Bar Row */}
       <View style={styles.searchRow}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={18} color={Theme.colors.subtext} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Filter tracks..."
+            placeholder="Search library or YouTube..."
             placeholderTextColor={Theme.colors.subtext}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -169,7 +195,7 @@ export default function LibraryScreen() {
           )}
         </View>
 
-        {/* Play All Icon Button */}
+        {/* Play All Button */}
         <TouchableOpacity
           style={styles.iconActionBtnPrimary}
           onPress={() => {
@@ -180,7 +206,7 @@ export default function LibraryScreen() {
           <Ionicons name="play" size={20} color="#ffffff" />
         </TouchableOpacity>
 
-        {/* Super Shuffle Icon Button */}
+        {/* Super Shuffle Button */}
         <TouchableOpacity
           style={styles.iconActionBtnSecondary}
           onPress={superShufflePlay}
@@ -190,54 +216,93 @@ export default function LibraryScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Section Header & Sort Selectors */}
+      {/* Section Header */}
       <View style={styles.sectionHeader}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={styles.sectionTitle}>
-            {activeFilter === 'recent' ? 'Recently Added' : 'All Songs'}
+        <Text style={styles.sectionTitle}>
+          {!isSearchActive
+            ? 'All Songs'
+            : localMatches.length > 0
+            ? 'Library Matches'
+            : 'YouTube Results'}
+        </Text>
+        <View style={styles.badgeContainer}>
+          <Text style={styles.sectionBadge}>
+            {isUsingYtFallback ? ytResults.length : localMatches.length}
           </Text>
-          <View style={styles.badgeContainer}>
-            <Text style={styles.sectionBadge}>{filteredSongs.length}</Text>
-          </View>
         </View>
-
-        {/* Sort Selector Scroll */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-          {(['date', 'title', 'artist', 'duration'] as const).map((s) => (
-            <TouchableOpacity
-              key={s}
-              style={[styles.sortPill, sortBy === s && styles.sortPillActive]}
-              onPress={() => setSortBy(s)}
-            >
-              <Text style={[styles.sortText, sortBy === s && styles.sortTextActive]}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
 
-      {/* Song List / Grid */}
+      {/* Main List Rendering */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={Theme.colors.primary} />
         </View>
-      ) : filteredSongs.length === 0 ? (
+      ) : isUsingYtFallback ? (
+        /* YouTube Fallback Search Results */
+        isYtSearching ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={Theme.colors.primary} />
+            <Text style={styles.loadingText}>Searching YouTube for "{searchQuery}"...</Text>
+          </View>
+        ) : ytResults.length > 0 ? (
+          <FlatList
+            data={ytResults}
+            keyExtractor={(item) => item.id || item.youtubeId || Math.random().toString()}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item }) => {
+              const songId = item.id || item.youtubeId;
+              const isImportingThis = importingYtId === songId;
+
+              return (
+                <View style={styles.ytResultRow}>
+                  <View style={{ flex: 1 }}>
+                    <SongItem
+                      track={item}
+                      onPress={() => playTrack(item, ytResults)}
+                      onMorePress={() => handleImportYtTrack(item)}
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.addYtBtn}
+                    onPress={() => handleImportYtTrack(item)}
+                    disabled={isImportingThis}
+                  >
+                    {isImportingThis ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <Ionicons name="add" size={16} color="#ffffff" />
+                        <Text style={styles.addYtBtnText}>Add</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              );
+            }}
+          />
+        ) : (
+          <View style={styles.centerContainer}>
+            <Ionicons name="search-outline" size={48} color={Theme.colors.subtext} />
+            <Text style={styles.emptyTitle}>No results found</Text>
+            <Text style={styles.emptySubtitle}>
+              No tracks matched "{searchQuery}" in your library or on YouTube.
+            </Text>
+          </View>
+        )
+      ) : localMatches.length === 0 ? (
         <View style={styles.centerContainer}>
           <Ionicons name="musical-notes-outline" size={48} color={Theme.colors.subtext} />
-          <Text style={styles.emptyTitle}>No songs found</Text>
+          <Text style={styles.emptyTitle}>No songs in library</Text>
           <Text style={styles.emptySubtitle}>
-            Import YouTube links using the Import tab to get started.
+            Use the search bar above to find and add songs from YouTube.
           </Text>
         </View>
       ) : (
+        /* Local Songs List */
         <FlatList
-          key={viewMode === 'grid' ? 'grid-2-col' : 'list-1-col'}
-          data={filteredSongs}
-          numColumns={viewMode === 'grid' ? 2 : 1}
+          data={localMatches}
           keyExtractor={(item) => item.id || item.youtubeId || Math.random().toString()}
           contentContainerStyle={styles.listContent}
-          columnWrapperStyle={viewMode === 'grid' ? { justifyContent: 'space-between' } : undefined}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -248,18 +313,6 @@ export default function LibraryScreen() {
           renderItem={({ item }) => {
             const currentId = playerTrack?.id || playerTrack?.youtubeId;
             const itemMatches = currentId && (item.id === currentId || item.youtubeId === currentId);
-
-            if (viewMode === 'grid') {
-              return (
-                <SongCard
-                  track={item}
-                  isCurrent={Boolean(itemMatches)}
-                  isPlaying={Boolean(itemMatches && isPlaying)}
-                  onPress={() => playTrack(item, songs)}
-                  onMorePress={() => handleSongOptions(item)}
-                />
-              );
-            }
 
             return (
               <SongItem
@@ -374,33 +427,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.border,
   },
-  filterChipRow: {
-    flexDirection: 'row',
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 4,
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: Theme.borderRadius.full,
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  chipActive: {
-    backgroundColor: Theme.colors.primary,
-    borderColor: Theme.colors.primary,
-  },
-  chipText: {
-    color: Theme.colors.subtext,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chipTextActive: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -427,7 +453,27 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: Theme.spacing.md,
-    paddingBottom: 140, // Account for MiniPlayer bottom bar
+    paddingBottom: 140,
+  },
+  ytResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addYtBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Theme.borderRadius.full,
+    gap: 4,
+    marginBottom: 8,
+  },
+  addYtBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   centerContainer: {
     flex: 1,
@@ -435,38 +481,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: Theme.spacing.xl,
   },
+  loadingText: {
+    color: Theme.colors.subtext,
+    fontSize: 14,
+    marginTop: Theme.spacing.md,
+  },
   emptyTitle: {
     color: Theme.colors.onSurface,
     fontSize: 18,
     fontWeight: '700',
     marginTop: Theme.spacing.md,
   },
-  viewToggleBtn: {
-    padding: 8,
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  sortPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Theme.borderRadius.full,
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  sortPillActive: {
-    backgroundColor: Theme.colors.primary,
-    borderColor: Theme.colors.primary,
-  },
-  sortText: {
+  emptySubtitle: {
     color: Theme.colors.subtext,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  sortTextActive: {
-    color: '#ffffff',
-    fontWeight: '700',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 6,
   },
 });
