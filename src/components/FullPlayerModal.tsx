@@ -48,6 +48,7 @@ export function FullPlayerModal() {
     cycleRepeatMode,
     toggleShuffle,
     selectQueueIndex,
+    removeFromQueue,
   } = useAudio();
 
   const [activeTab, setActiveTab] = useState<'player' | 'queue'>('player');
@@ -188,15 +189,26 @@ export function FullPlayerModal() {
           </ScrollView>
         ) : (
           <ScrollView contentContainerStyle={styles.queueContent}>
-            <Text style={styles.queueHeading}>Up Next</Text>
+            <Text style={styles.queueHeading}>Up Next ({queue.length})</Text>
             {queue.map((t, index) => (
-              <SongItem
-                key={`${t.id || t.youtubeId}-${index}`}
-                track={t}
-                isCurrent={index === queueIndex}
-                isPlaying={isPlaying && index === queueIndex}
-                onPress={() => selectQueueIndex(index)}
-              />
+              <View key={`${t.id || t.youtubeId}-${index}`} style={styles.queueRow}>
+                <View style={{ flex: 1 }}>
+                  <SongItem
+                    track={t}
+                    isCurrent={index === queueIndex}
+                    isPlaying={isPlaying && index === queueIndex}
+                    onPress={() => selectQueueIndex(index)}
+                  />
+                </View>
+                {index !== queueIndex && (
+                  <TouchableOpacity
+                    style={styles.removeQueueBtn}
+                    onPress={() => removeFromQueue(index)}
+                  >
+                    <Ionicons name="close-circle-outline" size={22} color={Theme.colors.subtext} />
+                  </TouchableOpacity>
+                )}
+              </View>
             ))}
           </ScrollView>
         )}
@@ -360,5 +372,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: Theme.spacing.md,
+  },
+  queueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  removeQueueBtn: {
+    padding: 8,
   },
 });

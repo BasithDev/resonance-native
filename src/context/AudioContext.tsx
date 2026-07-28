@@ -33,6 +33,9 @@ interface AudioContextType {
   togglePlayPause: () => Promise<void>;
   playNext: () => Promise<void>;
   playPrev: () => Promise<void>;
+  enqueueNext: (track: Track) => void;
+  addToQueue: (track: Track) => void;
+  removeFromQueue: (index: number) => void;
   seekTo: (pct: number) => Promise<void>;
   seekBy: (seconds: number) => Promise<void>;
   cycleRepeatMode: () => void;
@@ -231,6 +234,42 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  function enqueueNext(track: Track) {
+    if (!playerTrack || queue.length === 0) {
+      playTrack(track);
+      return;
+    }
+    const newQueue = [...queue];
+    newQueue.splice(queueIndex + 1, 0, track);
+    setQueue(newQueue);
+  }
+
+  function addToQueue(track: Track) {
+    if (!playerTrack || queue.length === 0) {
+      playTrack(track);
+      return;
+    }
+    setQueue((prev) => [...prev, track]);
+  }
+
+  function removeFromQueue(index: number) {
+    if (index < 0 || index >= queue.length) return;
+    const newQueue = queue.filter((_, i) => i !== index);
+    setQueue(newQueue);
+    if (index < queueIndex) {
+      setQueueIndex((prev) => Math.max(0, prev - 1));
+    } else if (index === queueIndex) {
+      if (newQueue.length > 0) {
+        const nextIdx = Math.min(queueIndex, newQueue.length - 1);
+        setQueueIndex(nextIdx);
+        loadAndPlayTrack(newQueue[nextIdx]);
+      } else {
+        setPlayerTrack(null);
+        setIsPlaying(false);
+      }
+    }
+  }
+
   async function seekTo(pct: number) {
     if (!playerRef.current || durationSec <= 0) return;
     const targetSec = Math.floor(pct * durationSec);
@@ -309,6 +348,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         togglePlayPause,
         playNext,
         playPrev,
+        enqueueNext,
+        addToQueue,
+        removeFromQueue,
         seekTo,
         seekBy,
         cycleRepeatMode,

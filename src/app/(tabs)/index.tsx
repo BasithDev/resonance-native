@@ -15,17 +15,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudio, Track } from '../../context/AudioContext';
 import { SongItem } from '../../components/SongItem';
+import { SongCard } from '../../components/SongCard';
 import { AddToPlaylistModal } from '../../components/AddToPlaylistModal';
 import { Theme } from '../../constants/theme';
 import * as api from '../../services/api';
 
 export default function LibraryScreen() {
-  const { playTrack, playerTrack, isPlaying, superShufflePlay } = useAudio();
+  const { playTrack, playerTrack, isPlaying, superShufflePlay, enqueueNext, addToQueue } = useAudio();
   const [songs, setSongs] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'recent'>('all');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [sortBy, setSortBy] = useState<'date' | 'title' | 'artist' | 'duration'>('date');
   const [selectedSong, setSelectedSong] = useState<Track | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -80,8 +83,45 @@ export default function LibraryScreen() {
     );
   });
 
+  filteredSongs = [...filteredSongs].sort((a, b) => {
+    if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '');
+    if (sortBy === 'artist') return (a.channel || '').localeCompare(b.channel || '');
+    if (sortBy === 'duration') return (b.durationSec || 0) - (a.durationSec || 0);
+    return 0; // date added (default)
+  });
+
   if (activeFilter === 'recent') {
     filteredSongs = [...filteredSongs].slice(-20).reverse();
+  }
+
+  function handleSongOptions(item: Track) {
+    Alert.alert(
+      item.title,
+      'Choose an action',
+      [
+        {
+          text: 'Play Next',
+          onPress: () => enqueueNext(item),
+        },
+        {
+          text: 'Add to Queue',
+          onPress: () => addToQueue(item),
+        },
+        {
+          text: 'Add to Playlist',
+          onPress: () => {
+            setSelectedSong(item);
+            setIsAddModalOpen(true);
+          },
+        },
+        {
+          text: 'Delete Song',
+          style: 'destructive',
+          onPress: () => handleDeleteSong(item),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   }
 
   return (
@@ -97,6 +137,18 @@ export default function LibraryScreen() {
             <Text style={styles.brandTagline}>PREMIUM AUDIO</Text>
           </View>
         </View>
+
+        {/* View Mode Toggle Button */}
+        <TouchableOpacity
+          style={styles.viewToggleBtn}
+          onPress={() => setViewMode((m) => (m === 'list' ? 'grid' : 'list'))}
+        >
+          <Ionicons
+            name={viewMode === 'list' ? 'grid-outline' : 'list-outline'}
+            size={22}
+            color={Theme.colors.onSurface}
+          />
+        </TouchableOpacity>
       </View>
 
       {/* Single Aligned Row: Search Bar + Play All Icon + Super Shuffle Icon */}
@@ -138,17 +190,34 @@ export default function LibraryScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Section Header - All Songs */}
+      {/* Section Header & Sort Selectors */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>
-          {activeFilter === 'recent' ? 'Recently Added' : 'All Songs'}
-        </Text>
-        <View style={styles.badgeContainer}>
-          <Text style={styles.sectionBadge}>{filteredSongs.length}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={styles.sectionTitle}>
+            {activeFilter === 'recent' ? 'Recently Added' : 'All Songs'}
+          </Text>
+          <View style={styles.badgeContainer}>
+            <Text style={styles.sectionBadge}>{filteredSongs.length}</Text>
+          </View>
         </View>
+
+        {/* Sort Selector Scroll */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+          {(['date', 'title', 'artist', 'duration'] as const).map((s) => (
+            <TouchableOpacity
+              key={s}
+              style={[styles.sortPill, sortBy === s && styles.sortPillActive]}
+              onPress={() => setSortBy(s)}
+            >
+              <Text style={[styles.sortText, sortBy === s && styles.sortTextActive]}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
-      {/* Song List */}
+      {/* Song List / Grid */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={Theme.colors.primary} />
@@ -163,9 +232,12 @@ export default function LibraryScreen() {
         </View>
       ) : (
         <FlatList
+          key={viewMode === 'grid' ? 'grid-2-col' : 'list-1-col'}
           data={filteredSongs}
+          numColumns={viewMode === 'grid' ? 2 : 1}
           keyExtractor={(item) => item.id || item.youtubeId || Math.random().toString()}
           contentContainerStyle={styles.listContent}
+          columnWrapperStyle={viewMode === 'grid' ? { justifyContent: 'space-between' } : undefined}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -177,33 +249,25 @@ export default function LibraryScreen() {
             const currentId = playerTrack?.id || playerTrack?.youtubeId;
             const itemMatches = currentId && (item.id === currentId || item.youtubeId === currentId);
 
+            if (viewMode === 'grid') {
+              return (
+                <SongCard
+                  track={item}
+                  isCurrent={Boolean(itemMatches)}
+                  isPlaying={Boolean(itemMatches && isPlaying)}
+                  onPress={() => playTrack(item, songs)}
+                  onMorePress={() => handleSongOptions(item)}
+                />
+              );
+            }
+
             return (
               <SongItem
                 track={item}
                 isCurrent={Boolean(itemMatches)}
                 isPlaying={Boolean(itemMatches && isPlaying)}
                 onPress={() => playTrack(item, songs)}
-                onMorePress={() => {
-                  Alert.alert(
-                    item.title,
-                    'Choose an action',
-                    [
-                      {
-                        text: 'Add to Playlist',
-                        onPress: () => {
-                          setSelectedSong(item);
-                          setIsAddModalOpen(true);
-                        },
-                      },
-                      {
-                        text: 'Delete Song',
-                        style: 'destructive',
-                        onPress: () => handleDeleteSong(item),
-                      },
-                      { text: 'Cancel', style: 'cancel' },
-                    ]
-                  );
-                }}
+                onMorePress={() => handleSongOptions(item)}
               />
             );
           }}
@@ -377,10 +441,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: Theme.spacing.md,
   },
-  emptySubtitle: {
+  viewToggleBtn: {
+    padding: 8,
+    backgroundColor: Theme.colors.surfaceContainer,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  sortPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Theme.borderRadius.full,
+    backgroundColor: Theme.colors.surfaceContainer,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  sortPillActive: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  sortText: {
     color: Theme.colors.subtext,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 6,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sortTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
 });

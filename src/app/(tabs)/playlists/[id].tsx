@@ -44,6 +44,8 @@ export default function PlaylistDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [filterQuery, setFilterQuery] = useState('');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [renameInput, setRenameInput] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const isDeletingRef = useRef(false);
 
@@ -126,6 +128,17 @@ export default function PlaylistDetailScreen() {
     }
   }
 
+  async function handleRenamePlaylist() {
+    if (!renameInput.trim() || id === 'all-songs') return;
+    try {
+      await api.updatePlaylist(id as string, renameInput.trim());
+      setPlaylist((prev: any) => ({ ...prev, name: renameInput.trim() }));
+      setIsRenameModalOpen(false);
+    } catch (e: any) {
+      Alert.alert('Error', 'Failed to rename playlist');
+    }
+  }
+
   async function handleRemoveSong(songId: string) {
     try {
       await api.removeSongFromPlaylist(id as string, songId);
@@ -154,9 +167,22 @@ export default function PlaylistDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={Theme.colors.onSurface} />
         </TouchableOpacity>
 
-        <Text style={styles.topBarTitle} numberOfLines={1}>
-          {playlist?.name || 'Playlist'}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={styles.topBarTitle} numberOfLines={1}>
+            {playlist?.name || 'Playlist'}
+          </Text>
+          {id !== 'all-songs' && (
+            <TouchableOpacity
+              onPress={() => {
+                setRenameInput(playlist?.name || '');
+                setIsRenameModalOpen(true);
+              }}
+              style={{ padding: 4 }}
+            >
+              <Ionicons name="pencil" size={16} color={Theme.colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
 
         {id !== 'all-songs' ? (
           <TouchableOpacity onPress={handleDeletePlaylist} style={styles.iconBtn}>
@@ -294,6 +320,59 @@ export default function PlaylistDetailScreen() {
                 ) : (
                   <Text style={styles.deleteModalBtnText}>Delete</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Rename Playlist Modal */}
+      <Modal
+        visible={isRenameModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsRenameModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={[styles.modalIconCircle, { backgroundColor: 'rgba(255, 89, 89, 0.15)' }]}>
+              <Ionicons name="pencil" size={26} color={Theme.colors.primary} />
+            </View>
+            <Text style={styles.modalTitle}>Rename Playlist</Text>
+
+            <TextInput
+              style={{
+                width: '100%',
+                backgroundColor: Theme.colors.surfaceContainerHigh,
+                color: Theme.colors.onSurface,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderRadius: Theme.borderRadius.md,
+                fontSize: 15,
+                marginVertical: 16,
+                borderWidth: 1,
+                borderColor: Theme.colors.border,
+              }}
+              value={renameInput}
+              onChangeText={setRenameInput}
+              placeholder="Playlist name..."
+              placeholderTextColor={Theme.colors.subtext}
+              autoFocus
+            />
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelModalBtn]}
+                onPress={() => setIsRenameModalOpen(false)}
+              >
+                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: Theme.colors.primary }]}
+                onPress={handleRenamePlaylist}
+              >
+                <Text style={styles.deleteModalBtnText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>

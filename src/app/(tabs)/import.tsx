@@ -138,6 +138,19 @@ export default function ImportScreen() {
                 <Text style={styles.previewChannel}>
                   {previewData.songs?.length || 0} tracks extracted
                 </Text>
+
+                {previewData.songs && previewData.songs.length > 0 && (
+                  <ScrollView style={{ maxHeight: 220, width: '100%', marginTop: 12 }}>
+                    {previewData.songs.map((s: any, idx: number) => (
+                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5 }}>
+                        <CoverArt url={s.thumbnailUrl} size={36} borderRadius={6} />
+                        <Text style={{ color: Theme.colors.onSurface, fontSize: 13, flex: 1 }} numberOfLines={1}>
+                          {s.title}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
               </View>
             )}
 
