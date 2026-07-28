@@ -21,6 +21,7 @@
     "expo-symbols": "~57.0.1",
     "expo-system-ui": "~57.0.1",
     "expo-web-browser": "~57.0.2",
+    "invariant": "^2.2.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.0",
@@ -35,6 +36,7 @@
     "@babel/core": "^7.29.7",
     "@babel/generator": "^7.29.7",
     "@babel/types": "^7.29.7",
+    "@types/invariant": "^2.2.37",
     "@types/react": "~19.2.2",
     "typescript": "~6.0.3"
   },
