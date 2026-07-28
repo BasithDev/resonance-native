@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,12 +27,15 @@ export default function PlaylistDetailScreen() {
   const [songs, setSongs] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterQuery, setFilterQuery] = useState('');
+  const isDeletingRef = useRef(false);
 
   useEffect(() => {
+    isDeletingRef.current = false;
     if (id) loadDetails();
   }, [id]);
 
   async function loadDetails() {
+    if (isDeletingRef.current) return;
     try {
       setLoading(true);
       if (id === 'all-songs') {
@@ -47,6 +50,7 @@ export default function PlaylistDetailScreen() {
         setSongs(songsList);
       } else {
         const data = await api.getPlaylistDetails(id as string);
+        if (isDeletingRef.current) return;
         const songsList = data?.songs || [];
         const firstThumb = songsList.find((s: any) => s.thumbnailUrl || s.coverUrl);
         setPlaylist({
@@ -55,8 +59,11 @@ export default function PlaylistDetailScreen() {
         });
         setSongs(songsList);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      if (isDeletingRef.current || e?.status === 404 || e?.message?.includes('404')) {
+        return;
+      }
+      console.error('Error loading playlist details:', e);
       Alert.alert('Error', 'Failed to load playlist details.');
     } finally {
       setLoading(false);
@@ -64,7 +71,11 @@ export default function PlaylistDetailScreen() {
   }
 
   function handleGoBack() {
-    router.replace('/(tabs)/playlists/index' as any);
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/playlists/index' as any);
+    }
   }
 
   async function handleDeletePlaylist() {
@@ -80,9 +91,11 @@ export default function PlaylistDetailScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
+            isDeletingRef.current = true;
             await api.deletePlaylist(id as string);
             handleGoBack();
           } catch (e: any) {
+            isDeletingRef.current = false;
             console.error('Delete playlist error:', e);
             Alert.alert('Delete Failed', e?.message || 'Failed to delete playlist');
           }
