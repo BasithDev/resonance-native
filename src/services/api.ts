@@ -4,13 +4,27 @@ import { Platform } from 'react-native';
 const STORAGE_KEY_SERVER = 'resonance:server_url';
 
 const CANDIDATE_URLS = [
+  'https://resonance-api.loca.lt/api',
   'http://192.168.60.114:4000/api',
   'http://10.0.2.2:4000/api',
-  'https://resonance-api.loca.lt/api',
   'http://127.0.0.1:4000/api',
 ];
 
-let currentBaseUrl = Platform.OS === 'android' ? 'http://192.168.60.114:4000/api' : 'http://127.0.0.1:4000/api';
+let currentBaseUrl = 'https://resonance-api.loca.lt/api';
+
+// Fast fetch with AbortSignal timeout
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 3000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...opts, signal: controller.signal });
+    clearTimeout(id);
+    return res;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
 
 export async function initApi() {
   try {
@@ -42,6 +56,26 @@ export async function setBaseUrl(url: string) {
   return currentBaseUrl;
 }
 
+// Fast parallel auto-discovery of working candidate URL
+async function discoverWorkingServerUrl(): Promise<string> {
+  const promises = CANDIDATE_URLS.map(async (candidate) => {
+    const res = await fetchWithTimeout(`${candidate}/health`, { method: 'GET' }, 1500);
+    if (res.ok) return candidate;
+    throw new Error(`Health check failed for ${candidate}`);
+  });
+
+  try {
+    const workingCandidate = await Promise.any(promises);
+    console.log(`⚡ Fast auto-discovered server URL: ${workingCandidate}`);
+    currentBaseUrl = workingCandidate;
+    await AsyncStorage.setItem(STORAGE_KEY_SERVER, workingCandidate);
+    return workingCandidate;
+  } catch (err) {
+    console.warn('All backend candidates failed health check.');
+    throw new Error('Could not connect to Resonance backend server. Please check your network or server URL in Settings.');
+  }
+}
+
 async function request(method: string, path: string, body?: any) {
   const opts: RequestInit = {
     method,
@@ -49,11 +83,14 @@ async function request(method: string, path: string, body?: any) {
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
 
-  // Try currentBaseUrl first
+  // 1. Try currentBaseUrl first with 3-second timeout
   try {
     const url = `${currentBaseUrl}${path}`;
-    const res = await fetch(url, opts);
+    const res = await fetchWithTimeout(url, opts, 3000);
     if (!res.ok) {
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        throw new Error(`Gateway Error (${res.status})`);
+      }
       const err = await res.json().catch(() => ({}));
       const message = err.message || `Request failed (${res.status})`;
       throw Object.assign(new Error(message), { status: res.status });
@@ -61,30 +98,17 @@ async function request(method: string, path: string, body?: any) {
     if (res.status === 204) return null;
     return await res.json();
   } catch (err: any) {
-    // If it's a standard HTTP application error (like 400/401/404/500), don't try candidate URLs.
-    // But if it's 502/503/504 (tunnel gateway error), fall back to other candidate URLs!
-    if (err.status && err.status !== 502 && err.status !== 503 && err.status !== 504) throw err;
-
-    // Network error: Auto-discover working server URL among candidates
-    for (const candidate of CANDIDATE_URLS) {
-      if (candidate === currentBaseUrl) continue;
-      try {
-        const testRes = await fetch(`${candidate}/health`, { method: 'GET' });
-        if (testRes.ok) {
-          console.log(`Auto-connected backend to working URL: ${candidate}`);
-          currentBaseUrl = candidate;
-          await AsyncStorage.setItem(STORAGE_KEY_SERVER, candidate);
-          // Retry original request with working candidate
-          const retryRes = await fetch(`${candidate}${path}`, opts);
-          if (!retryRes.ok) throw new Error(`Request failed (${retryRes.status})`);
-          if (retryRes.status === 204) return null;
-          return await retryRes.json();
-        }
-      } catch (retryErr) {
-        // continue to next candidate
-      }
+    // If it's a standard HTTP application error (like 400/401/404/500), don't retry candidates
+    if (err.status && err.status !== 502 && err.status !== 503 && err.status !== 504) {
+      throw err;
     }
-    throw err;
+
+    // 2. Network error / Timeout / Gateway error: Trigger fast parallel auto-discovery (< 1.5s)
+    const workingUrl = await discoverWorkingServerUrl();
+    const retryRes = await fetchWithTimeout(`${workingUrl}${path}`, opts, 4000);
+    if (!retryRes.ok) throw new Error(`Request failed (${retryRes.status})`);
+    if (retryRes.status === 204) return null;
+    return await retryRes.json();
   }
 }
 

@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Theme } from '../constants/theme';
+import { CoverArt } from './CoverArt';
 
 interface PlaylistCardProps {
   playlist: {
@@ -9,6 +10,7 @@ interface PlaylistCardProps {
     name: string;
     songCount?: number;
     songs?: any[];
+    coverUrl?: string;
   };
   onPress: () => void;
   onPlayPress?: () => void;
@@ -16,68 +18,132 @@ interface PlaylistCardProps {
 
 export function PlaylistCard({ playlist, onPress, onPlayPress }: PlaylistCardProps) {
   const count = playlist.songCount ?? playlist.songs?.length ?? 0;
+  const coverUrl = playlist.coverUrl || (playlist.songs && playlist.songs.length > 0 ? playlist.songs[0].thumbnailUrl : null);
+  const isAllSongs = playlist.id === 'all-songs';
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
-      <View style={styles.iconContainer}>
-        <Ionicons name="musical-notes" size={28} color={Theme.colors.primary} />
+    <TouchableOpacity
+      style={[styles.gridCardWindow, isAllSongs && styles.allSongsGridCard]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {/* Square Cover Artwork Box */}
+      <View style={styles.squareCoverBox}>
+        {isAllSongs ? (
+          <View style={styles.allSongsCoverOverlay}>
+            <Ionicons name="musical-notes" size={44} color="#ffffff" />
+          </View>
+        ) : coverUrl ? (
+          <Image source={{ uri: coverUrl }} style={styles.coverImage} resizeMode="cover" />
+        ) : (
+          <View style={styles.fallbackCoverBox}>
+            <Ionicons name="albums-outline" size={40} color={Theme.colors.primary} />
+          </View>
+        )}
+
+        {/* Floating Circular Play FAB Button on Artwork */}
+        {onPlayPress && (
+          <TouchableOpacity
+            style={styles.playFabOverlay}
+            onPress={(e) => {
+              e.stopPropagation();
+              onPlayPress();
+            }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="play" size={18} color="#ffffff" />
+          </TouchableOpacity>
+        )}
       </View>
-      <View style={styles.content}>
-        <Text style={styles.name} numberOfLines={1}>
+
+      {/* Playlist Metadata Info */}
+      <View style={styles.metaContainer}>
+        <Text style={styles.playlistName} numberOfLines={1}>
           {playlist.name}
         </Text>
-        <Text style={styles.count}>
+        <Text style={styles.trackCountBadge}>
           {count} {count === 1 ? 'track' : 'tracks'}
         </Text>
       </View>
-      {onPlayPress && (
-        <TouchableOpacity style={styles.playButton} onPress={onPlayPress}>
-          <Ionicons name="play" size={18} color="#ffffff" />
-        </TouchableOpacity>
-      )}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  gridCardWindow: {
+    flex: 1,
     backgroundColor: Theme.colors.surfaceContainer,
-    padding: Theme.spacing.md,
     borderRadius: Theme.borderRadius.lg,
-    marginBottom: Theme.spacing.md,
+    padding: 10,
     borderWidth: 1,
     borderColor: Theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    marginHorizontal: 4,
   },
-  iconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: Theme.borderRadius.md,
+  allSongsGridCard: {
+    borderColor: 'rgba(255, 89, 89, 0.4)',
     backgroundColor: Theme.colors.surfaceContainerHigh,
+  },
+  squareCoverBox: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: Theme.borderRadius.md,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: Theme.colors.surfaceContainerHighest,
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  allSongsCoverOverlay: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: Theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  content: {
-    flex: 1,
-    marginLeft: Theme.spacing.md,
+  fallbackCoverBox: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Theme.colors.surfaceContainerHigh,
   },
-  name: {
-    color: Theme.colors.onSurface,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  count: {
-    color: Theme.colors.subtext,
-    fontSize: 13,
-  },
-  playButton: {
+  playFabOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
     width: 38,
     height: 38,
     borderRadius: 19,
     backgroundColor: Theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  metaContainer: {
+    marginTop: 10,
+    paddingHorizontal: 2,
+  },
+  playlistName: {
+    color: Theme.colors.onSurface,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: 2,
+  },
+  trackCountBadge: {
+    color: Theme.colors.subtext,
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

@@ -25,10 +25,12 @@ export function SongItem({ track, isPlaying, isCurrent, onPress, onMorePress }: 
     <TouchableOpacity
       style={[styles.container, isCurrent && styles.activeContainer]}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.75}
     >
-      <CoverArt url={track.thumbnailUrl} size={48} borderRadius={8} />
+      {/* Cover Artwork Thumbnail */}
+      <CoverArt url={track.thumbnailUrl} size={50} borderRadius={10} />
 
+      {/* Track Info */}
       <View style={styles.infoContainer}>
         <Text
           numberOfLines={1}
@@ -41,23 +43,25 @@ export function SongItem({ track, isPlaying, isCurrent, onPress, onMorePress }: 
         </Text>
       </View>
 
+      {/* Active Playing Equalizer Indicator */}
       {isCurrent && (
-        <View style={styles.playingIndicator}>
+        <View style={styles.playingBadge}>
           <Ionicons
             name={isPlaying ? 'stats-chart' : 'pause'}
-            size={18}
+            size={16}
             color={Theme.colors.primary}
           />
         </View>
       )}
 
+      {/* 3-Dot Context Options Menu */}
       {onMorePress && (
         <TouchableOpacity
           onPress={onMorePress}
           style={styles.moreButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="ellipsis-vertical" size={18} color={Theme.colors.onSurfaceVariant} />
+          <Ionicons name="ellipsis-vertical" size={18} color={Theme.colors.subtext} />
         </TouchableOpacity>
       )}
     </TouchableOpacity>
@@ -69,24 +73,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: Theme.spacing.md,
+    paddingHorizontal: 12,
     borderRadius: Theme.borderRadius.md,
-    marginVertical: 2,
-    backgroundColor: 'transparent',
+    marginBottom: 8,
+    backgroundColor: Theme.colors.surfaceContainer,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   activeContainer: {
-    backgroundColor: Theme.colors.surfaceContainer,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderColor: 'rgba(255, 89, 89, 0.4)',
   },
   infoContainer: {
     flex: 1,
-    marginLeft: Theme.spacing.md,
+    marginLeft: 12,
     justifyContent: 'center',
   },
   title: {
     color: Theme.colors.onSurface,
     fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontWeight: '700',
+    marginBottom: 3,
+    letterSpacing: -0.2,
   },
   activeTitle: {
     color: Theme.colors.primary,
@@ -94,9 +102,14 @@ const styles = StyleSheet.create({
   channel: {
     color: Theme.colors.subtext,
     fontSize: 13,
+    fontWeight: '500',
   },
-  playingIndicator: {
-    marginHorizontal: Theme.spacing.sm,
+  playingBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 89, 89, 0.15)',
+    marginRight: 4,
   },
   moreButton: {
     padding: 6,

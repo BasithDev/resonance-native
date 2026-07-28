@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,20 +23,26 @@ export default function PlaylistsScreen() {
   const router = useRouter();
   const { playTrack } = useAudio();
   const [playlists, setPlaylists] = useState<any[]>([]);
+  const [allSongs, setAllSongs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   useEffect(() => {
-    loadPlaylists();
+    loadData();
   }, []);
 
-  async function loadPlaylists() {
+  async function loadData() {
     try {
       setLoading(true);
       await api.initApi();
-      const data = await api.getPlaylists();
-      setPlaylists(data || []);
+      const [plData, songData] = await Promise.all([
+        api.getPlaylists().catch(() => []),
+        api.getSongs().catch(() => []),
+      ]);
+      setPlaylists(Array.isArray(plData) ? plData : []);
+      setAllSongs(Array.isArray(songData) ? songData : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -45,7 +52,7 @@ export default function PlaylistsScreen() {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await loadPlaylists();
+    await loadData();
     setRefreshing(false);
   }
 
@@ -53,7 +60,7 @@ export default function PlaylistsScreen() {
     try {
       const res = await api.createPlaylist(name);
       setIsCreateOpen(false);
-      await loadPlaylists();
+      await loadData();
       if (res?.id) {
         router.push(`/playlists/${res.id}` as any);
       }
@@ -64,6 +71,12 @@ export default function PlaylistsScreen() {
 
   async function handlePlayPlaylist(playlistId: string) {
     try {
+      if (playlistId === 'all-songs') {
+        if (allSongs.length > 0) {
+          await playTrack(allSongs[0], allSongs);
+        }
+        return;
+      }
       const details = await api.getPlaylistDetails(playlistId);
       const songs = details?.songs || [];
       if (songs.length > 0) {
@@ -76,38 +89,67 @@ export default function PlaylistsScreen() {
     }
   }
 
+  const filteredPlaylists = playlists.filter((p) =>
+    p.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const defaultAllSongsPlaylist = {
+    id: 'all-songs',
+    name: 'All Songs',
+    songCount: allSongs.length,
+    songs: allSongs,
+    coverUrl: allSongs.length > 0 ? allSongs[0].thumbnailUrl : null,
+  };
+
+  const gridData = searchQuery
+    ? filteredPlaylists
+    : [defaultAllSongsPlaylist, ...filteredPlaylists];
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerSubtitle}>COLLECTIONS</Text>
-          <Text style={styles.headerTitle}>Playlists</Text>
+          <Text style={styles.headerTitle}>Your Playlists</Text>
         </View>
 
-        <TouchableOpacity style={styles.addBtn} onPress={() => setIsCreateOpen(true)}>
+        <TouchableOpacity style={styles.addBtn} onPress={() => setIsCreateOpen(true)} activeOpacity={0.8}>
           <Ionicons name="add" size={24} color="#ffffff" />
         </TouchableOpacity>
       </View>
 
+      {/* Search Filter Bar */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={18} color={Theme.colors.subtext} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Find a playlist..."
+            placeholderTextColor={Theme.colors.subtext}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={Theme.colors.subtext} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* 2-Column Grid of Big Playlist Cards */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={Theme.colors.primary} />
         </View>
-      ) : playlists.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Ionicons name="albums-outline" size={56} color={Theme.colors.subtext} />
-          <Text style={styles.emptyTitle}>No Playlists Yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Create your first custom playlist to group your favorite music.
-          </Text>
-          <TouchableOpacity style={styles.createBigBtn} onPress={() => setIsCreateOpen(true)}>
-            <Text style={styles.createBigBtnText}>Create Playlist</Text>
-          </TouchableOpacity>
-        </View>
       ) : (
         <FlatList
-          data={playlists}
+          key="playlists-2-col-grid"
+          data={gridData}
+          numColumns={2}
           keyExtractor={(item) => item.id}
+          columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
@@ -115,6 +157,15 @@ export default function PlaylistsScreen() {
               onRefresh={handleRefresh}
               tintColor={Theme.colors.primary}
             />
+          }
+          ListEmptyComponent={
+            gridData.length === 0 ? (
+              <View style={styles.centerContainer}>
+                <Ionicons name="search-outline" size={48} color={Theme.colors.subtext} />
+                <Text style={styles.emptyTitle}>No playlists found</Text>
+                <Text style={styles.emptySubtitle}>No playlists match "{searchQuery}"</Text>
+              </View>
+            ) : null
           }
           renderItem={({ item }) => (
             <PlaylistCard
@@ -144,7 +195,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.lg,
+    paddingHorizontal: Theme.spacing.md,
     paddingTop: Theme.spacing.md,
     paddingBottom: Theme.spacing.sm,
   },
@@ -156,26 +207,55 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: Theme.colors.onSurface,
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: Theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  searchRow: {
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surfaceContainer,
+    paddingHorizontal: Theme.spacing.md,
+    height: 46,
+    borderRadius: Theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    color: Theme.colors.onSurface,
+    marginLeft: Theme.spacing.sm,
+    fontSize: 14,
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   listContent: {
-    padding: Theme.spacing.lg,
+    paddingHorizontal: Theme.spacing.md - 4,
     paddingBottom: 140,
   },
   centerContainer: {
-    flex: 1,
+    padding: Theme.spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Theme.spacing.xl,
   },
   emptyTitle: {
     color: Theme.colors.onSurface,
@@ -188,17 +268,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 6,
-    marginBottom: Theme.spacing.lg,
-  },
-  createBigBtn: {
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: Theme.borderRadius.full,
-  },
-  createBigBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
   },
 });

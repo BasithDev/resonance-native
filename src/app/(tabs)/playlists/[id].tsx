@@ -34,9 +34,15 @@ export default function PlaylistDetailScreen() {
   async function loadDetails() {
     try {
       setLoading(true);
-      const data = await api.getPlaylistDetails(id as string);
-      setPlaylist(data);
-      setSongs(data?.songs || []);
+      if (id === 'all-songs') {
+        const data = await api.getSongs();
+        setPlaylist({ id: 'all-songs', name: 'All Songs' });
+        setSongs(data || []);
+      } else {
+        const data = await api.getPlaylistDetails(id as string);
+        setPlaylist(data);
+        setSongs(data?.songs || []);
+      }
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Failed to load playlist details.');

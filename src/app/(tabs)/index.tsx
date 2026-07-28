@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,11 +20,12 @@ import { Theme } from '../../constants/theme';
 import * as api from '../../services/api';
 
 export default function LibraryScreen() {
-  const { playTrack, playerTrack, isPlaying, superShufflePlay, setIsServerModalOpen } = useAudio();
+  const { playTrack, playerTrack, isPlaying, superShufflePlay } = useAudio();
   const [songs, setSongs] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'recent'>('all');
   const [selectedSong, setSelectedSong] = useState<Track | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -69,7 +71,7 @@ export default function LibraryScreen() {
     ]);
   }
 
-  const filteredSongs = songs.filter((s) => {
+  let filteredSongs = songs.filter((s) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -78,60 +80,72 @@ export default function LibraryScreen() {
     );
   });
 
+  if (activeFilter === 'recent') {
+    filteredSongs = [...filteredSongs].slice(-20).reverse();
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header */}
+      {/* Top Branding Header with Equalizer Logo */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerSubtitle}>YOUR COLLECTION</Text>
-          <Text style={styles.headerTitle}>Master Library</Text>
+        <View style={styles.brandContainer}>
+          <View style={styles.logoBadge}>
+            <Ionicons name="pulse" size={22} color="#ffffff" />
+          </View>
+          <View style={styles.brandTextContainer}>
+            <Text style={styles.brandTitle}>Resonance</Text>
+            <Text style={styles.brandTagline}>PREMIUM AUDIO</Text>
+          </View>
         </View>
-
-        <TouchableOpacity style={styles.serverBtn} onPress={() => setIsServerModalOpen(true)}>
-          <Ionicons name="hardware-chip-outline" size={20} color={Theme.colors.primary} />
-        </TouchableOpacity>
       </View>
 
-      {/* Action Banners */}
-      <View style={styles.actionRow}>
+      {/* Single Aligned Row: Search Bar + Play All Icon + Super Shuffle Icon */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={18} color={Theme.colors.subtext} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Filter tracks..."
+            placeholderTextColor={Theme.colors.subtext}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={Theme.colors.subtext} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Play All Icon Button */}
         <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: Theme.colors.primary }]}
+          style={styles.iconActionBtnPrimary}
           onPress={() => {
             if (songs.length > 0) playTrack(songs[0], songs);
           }}
           activeOpacity={0.8}
         >
-          <Ionicons name="play" size={22} color="#ffffff" />
-          <Text style={styles.actionCardText}>Play All</Text>
+          <Ionicons name="play" size={20} color="#ffffff" />
         </TouchableOpacity>
 
+        {/* Super Shuffle Icon Button */}
         <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: Theme.colors.surfaceContainerHigh }]}
+          style={styles.iconActionBtnSecondary}
           onPress={superShufflePlay}
           activeOpacity={0.8}
         >
-          <Ionicons name="shuffle" size={22} color={Theme.colors.primary} />
-          <Text style={[styles.actionCardText, { color: Theme.colors.onSurface }]}>
-            Super Shuffle
-          </Text>
+          <Ionicons name="shuffle" size={20} color={Theme.colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Search filter bar */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={18} color={Theme.colors.subtext} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Filter tracks or artists..."
-          placeholderTextColor={Theme.colors.subtext}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color={Theme.colors.subtext} />
-          </TouchableOpacity>
-        )}
+      {/* Section Header - All Songs */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>
+          {activeFilter === 'recent' ? 'Recently Added' : 'All Songs'}
+        </Text>
+        <View style={styles.badgeContainer}>
+          <Text style={styles.sectionBadge}>{filteredSongs.length}</Text>
+        </View>
       </View>
 
       {/* Song List */}
@@ -211,62 +225,58 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.lg,
+    paddingHorizontal: Theme.spacing.md,
     paddingTop: Theme.spacing.md,
     paddingBottom: Theme.spacing.sm,
   },
-  headerSubtitle: {
-    color: Theme.colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.5,
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  headerTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 26,
-    fontWeight: '800',
-  },
-  serverBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.surfaceContainer,
+  logoBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  actionRow: {
+  brandTextContainer: {
+    justifyContent: 'center',
+  },
+  brandTitle: {
+    color: Theme.colors.primary,
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  brandTagline: {
+    color: Theme.colors.subtext,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginTop: -2,
+  },
+  searchRow: {
     flexDirection: 'row',
-    gap: Theme.spacing.md,
-    paddingHorizontal: Theme.spacing.lg,
-    marginVertical: Theme.spacing.sm,
+    alignItems: 'center',
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    gap: 10,
   },
-  actionCard: {
+  searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: Theme.borderRadius.full,
-    gap: 8,
-  },
-  actionCardText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: Theme.colors.surfaceContainer,
-    marginHorizontal: Theme.spacing.lg,
-    marginVertical: Theme.spacing.sm,
     paddingHorizontal: Theme.spacing.md,
-    height: 42,
+    height: 46,
     borderRadius: Theme.borderRadius.full,
     borderWidth: 1,
     borderColor: Theme.colors.border,
@@ -277,7 +287,82 @@ const styles = StyleSheet.create({
     marginLeft: Theme.spacing.sm,
     fontSize: 14,
   },
+  iconActionBtnPrimary: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: Theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  iconActionBtnSecondary: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  filterChipRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: 4,
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: Theme.borderRadius.full,
+    backgroundColor: Theme.colors.surfaceContainer,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  chipActive: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  chipText: {
+    color: Theme.colors.subtext,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  chipTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+  },
+  sectionTitle: {
+    color: Theme.colors.onSurface,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  badgeContainer: {
+    backgroundColor: 'rgba(255, 89, 89, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  sectionBadge: {
+    color: Theme.colors.primary,
+    fontSize: 13,
+    fontWeight: '800',
+  },
   listContent: {
+    paddingHorizontal: Theme.spacing.md,
     paddingBottom: 140, // Account for MiniPlayer bottom bar
   },
   centerContainer: {
