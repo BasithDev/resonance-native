@@ -10,6 +10,7 @@ import {
   Alert,
   Image,
   BackHandler,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -28,6 +29,8 @@ export default function PlaylistDetailScreen() {
   const [songs, setSongs] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterQuery, setFilterQuery] = useState('');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const isDeletingRef = useRef(false);
 
   useEffect(() => {
@@ -89,30 +92,24 @@ export default function PlaylistDetailScreen() {
     }
   }
 
-  async function handleDeletePlaylist() {
-    if (id === 'all-songs') {
-      Alert.alert('System Collection', '"All Songs" is a default collection and cannot be deleted.');
-      return;
-    }
+  function handleDeletePlaylist() {
+    if (id === 'all-songs') return;
+    setIsDeleteModalOpen(true);
+  }
 
-    Alert.alert('Delete Playlist', `Are you sure you want to delete "${playlist?.name || 'this playlist'}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            isDeletingRef.current = true;
-            await api.deletePlaylist(id as string);
-            router.replace('/playlists' as any);
-          } catch (e: any) {
-            isDeletingRef.current = false;
-            console.error('Delete playlist error:', e);
-            Alert.alert('Delete Failed', e?.message || 'Failed to delete playlist');
-          }
-        },
-      },
-    ]);
+  async function confirmDeletePlaylist() {
+    try {
+      setIsDeleting(true);
+      isDeletingRef.current = true;
+      await api.deletePlaylist(id as string);
+      setIsDeleteModalOpen(false);
+      router.replace('/playlists' as any);
+    } catch (e: any) {
+      setIsDeleting(false);
+      isDeletingRef.current = false;
+      console.error('Delete playlist error:', e);
+      Alert.alert('Delete Failed', e?.message || 'Failed to delete playlist');
+    }
   }
 
   async function handleRemoveSong(songId: string) {
@@ -246,6 +243,48 @@ export default function PlaylistDetailScreen() {
           }}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={isDeleteModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isDeleting && setIsDeleteModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalIconCircle}>
+              <Ionicons name="trash-outline" size={28} color={Theme.colors.error} />
+            </View>
+            <Text style={styles.modalTitle}>Delete Playlist?</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to delete "{playlist?.name}"? This action cannot be undone.
+            </Text>
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelModalBtn]}
+                onPress={() => setIsDeleteModalOpen(false)}
+                disabled={isDeleting}
+              >
+                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.deleteModalBtn, isDeleting && { opacity: 0.6 }]}
+                onPress={confirmDeletePlaylist}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.deleteModalBtnText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -254,6 +293,80 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Theme.colors.background,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Theme.spacing.md,
+  },
+  modalContainer: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: Theme.colors.surfaceContainer,
+    borderRadius: Theme.borderRadius.lg,
+    padding: Theme.spacing.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  modalIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 82, 82, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    color: Theme.colors.onSurface,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    color: Theme.colors.subtext,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: Theme.borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelModalBtn: {
+    backgroundColor: Theme.colors.surfaceContainerHigh,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  cancelModalBtnText: {
+    color: Theme.colors.onSurface,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  deleteModalBtn: {
+    backgroundColor: Theme.colors.error,
+  },
+  deleteModalBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   topBar: {
     flexDirection: 'row',
