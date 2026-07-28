@@ -16,6 +16,20 @@ interface PlaylistCardProps {
   onPlayPress?: () => void;
 }
 
+function formatTotalRuntime(songs?: any[]): string {
+  if (!songs || songs.length === 0) return '';
+  const totalSec = songs.reduce((sum, s) => sum + (s.durationSec || s.duration_sec || 0), 0);
+  if (totalSec <= 0) return '';
+
+  const hrs = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+
+  if (hrs > 0) {
+    return `${hrs}h ${mins}m`;
+  }
+  return `${mins} min${mins !== 1 ? 's' : ''}`;
+}
+
 export function PlaylistCard({ playlist, onPress, onPlayPress }: PlaylistCardProps) {
   const count = playlist.songCount ?? playlist.songs?.length ?? 0;
   const firstWithThumb = playlist.songs?.find((s: any) => s.thumbnailUrl || s.coverUrl);
@@ -25,6 +39,7 @@ export function PlaylistCard({ playlist, onPress, onPlayPress }: PlaylistCardPro
     firstWithThumb?.coverUrl ||
     null;
   const isAllSongs = playlist.id === 'all-songs';
+  const totalRuntime = formatTotalRuntime(playlist.songs);
 
   return (
     <TouchableOpacity
@@ -66,8 +81,8 @@ export function PlaylistCard({ playlist, onPress, onPlayPress }: PlaylistCardPro
         <Text style={styles.playlistName} numberOfLines={1}>
           {playlist.name}
         </Text>
-        <Text style={styles.trackCountBadge}>
-          {count} {count === 1 ? 'track' : 'tracks'}
+        <Text style={styles.trackCountBadge} numberOfLines={1}>
+          {count} {count === 1 ? 'track' : 'tracks'}{totalRuntime ? ` • ${totalRuntime}` : ''}
         </Text>
       </View>
     </TouchableOpacity>

@@ -20,6 +20,20 @@ import { SongItem } from '../../../components/SongItem';
 import { Theme } from '../../../constants/theme';
 import * as api from '../../../services/api';
 
+function formatTotalRuntime(songs?: any[]): string {
+  if (!songs || songs.length === 0) return '';
+  const totalSec = songs.reduce((sum, s) => sum + (s.durationSec || s.duration_sec || 0), 0);
+  if (totalSec <= 0) return '';
+
+  const hrs = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+
+  if (hrs > 0) {
+    return `${hrs}h ${mins}m`;
+  }
+  return `${mins} min${mins !== 1 ? 's' : ''}`;
+}
+
 export default function PlaylistDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -175,7 +189,7 @@ export default function PlaylistDetailScreen() {
                 )}
                 <Text style={styles.heroTitle}>{playlist?.name}</Text>
                 <Text style={styles.heroSub}>
-                  {songs.length} {songs.length === 1 ? 'track' : 'tracks'}
+                  {songs.length} {songs.length === 1 ? 'track' : 'tracks'}{formatTotalRuntime(songs) ? ` • ${formatTotalRuntime(songs)}` : ''}
                 </Text>
 
                 {/* Hero Actions */}
