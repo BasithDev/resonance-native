@@ -32,7 +32,9 @@ export default function PlaylistDetailScreen() {
 
   useEffect(() => {
     isDeletingRef.current = false;
-    if (id) loadDetails();
+    if (id && id !== 'index' && id !== 'undefined') {
+      loadDetails();
+    }
   }, [id]);
 
   function handleGoBack() {
@@ -52,7 +54,7 @@ export default function PlaylistDetailScreen() {
   );
 
   async function loadDetails() {
-    if (isDeletingRef.current) return;
+    if (!id || id === 'index' || id === 'undefined' || isDeletingRef.current) return;
     try {
       setLoading(true);
       if (id === 'all-songs') {
