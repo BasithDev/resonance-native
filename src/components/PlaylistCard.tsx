@@ -35,14 +35,7 @@ export function PlaylistCard({ playlist, onPress, onPlayPress }: PlaylistCardPro
       {/* Square Cover Artwork Box */}
       <View style={styles.squareCoverBox}>
         {coverUrl ? (
-          <View style={styles.imageContainer}>
-            <Image source={{ uri: coverUrl }} style={styles.coverImage} resizeMode="cover" />
-            {isAllSongs && (
-              <View style={styles.allSongsBadge}>
-                <Ionicons name="musical-notes" size={12} color="#ffffff" />
-              </View>
-            )}
-          </View>
+          <Image source={{ uri: coverUrl }} style={styles.coverImage} resizeMode="cover" />
         ) : isAllSongs ? (
           <View style={styles.allSongsCoverOverlay}>
             <Ionicons name="musical-notes" size={44} color="#ffffff" />
@@ -108,27 +101,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: Theme.colors.surfaceContainerHighest,
   },
-  imageContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-  },
   coverImage: {
     width: '100%',
     height: '100%',
-  },
-  allSongsBadge: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    backgroundColor: Theme.colors.primary,
-    padding: 5,
-    borderRadius: Theme.borderRadius.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 3,
   },
   allSongsCoverOverlay: {
     width: '100%',

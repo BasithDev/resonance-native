@@ -63,8 +63,17 @@ export default function PlaylistDetailScreen() {
     }
   }
 
+  function handleGoBack() {
+    router.replace('/(tabs)/playlists/index' as any);
+  }
+
   async function handleDeletePlaylist() {
-    Alert.alert('Delete Playlist', `Delete "${playlist?.name}"?`, [
+    if (id === 'all-songs') {
+      Alert.alert('System Collection', '"All Songs" is a default collection and cannot be deleted.');
+      return;
+    }
+
+    Alert.alert('Delete Playlist', `Are you sure you want to delete "${playlist?.name || 'this playlist'}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -72,9 +81,10 @@ export default function PlaylistDetailScreen() {
         onPress: async () => {
           try {
             await api.deletePlaylist(id as string);
-            router.back();
-          } catch (e) {
-            Alert.alert('Error', 'Failed to delete playlist');
+            handleGoBack();
+          } catch (e: any) {
+            console.error('Delete playlist error:', e);
+            Alert.alert('Delete Failed', e?.message || 'Failed to delete playlist');
           }
         },
       },
@@ -105,7 +115,7 @@ export default function PlaylistDetailScreen() {
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+        <TouchableOpacity onPress={handleGoBack} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={24} color={Theme.colors.onSurface} />
         </TouchableOpacity>
 
@@ -113,9 +123,13 @@ export default function PlaylistDetailScreen() {
           {playlist?.name || 'Playlist'}
         </Text>
 
-        <TouchableOpacity onPress={handleDeletePlaylist} style={styles.iconBtn}>
-          <Ionicons name="trash-outline" size={22} color={Theme.colors.error} />
-        </TouchableOpacity>
+        {id !== 'all-songs' ? (
+          <TouchableOpacity onPress={handleDeletePlaylist} style={styles.iconBtn}>
+            <Ionicons name="trash-outline" size={22} color={Theme.colors.error} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 34 }} />
+        )}
       </View>
 
       {loading ? (
