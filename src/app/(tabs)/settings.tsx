@@ -4,13 +4,11 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudio } from '../../context/AudioContext';
-import { Theme } from '../../constants/theme';
 import * as api from '../../services/api';
 
 export default function SettingsScreen() {
@@ -29,60 +27,60 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.headerSubtitle}>PREFERENCES & PORTABILITY</Text>
-          <Text style={styles.headerTitle}>Settings</Text>
+    <SafeAreaView className="flex-1 bg-background">
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 140 }}>
+        <View className="mb-5">
+          <Text className="text-primary text-[11px] font-extrabold tracking-widest">PREFERENCES & PORTABILITY</Text>
+          <Text className="text-white text-[26px] font-extrabold">Settings</Text>
         </View>
 
         {/* Server Connection Section */}
-        <Text style={styles.sectionHeader}>SERVER CONNECTION</Text>
+        <Text className="text-subtext text-[11px] font-extrabold tracking-wider mt-4 mb-2">SERVER CONNECTION</Text>
         <TouchableOpacity
-          style={styles.card}
+          className="flex-row items-center bg-surfaceContainer p-4 rounded-2xl mb-4 border border-border"
           onPress={() => setIsServerModalOpen(true)}
           activeOpacity={0.7}
         >
-          <View style={styles.iconCircle}>
-            <Ionicons name="server-outline" size={22} color={Theme.colors.primary} />
+          <View className="w-11 h-11 rounded-full bg-surfaceContainerHigh items-center justify-center">
+            <Ionicons name="server-outline" size={22} color="#FF5959" />
           </View>
-          <View style={styles.cardContent}>
-            <Text style={styles.cardTitle}>Backend Server URL</Text>
-            <Text style={styles.cardSubtitle} numberOfLines={1}>
+          <View className="flex-1 ml-4">
+            <Text className="text-white text-[15px] font-bold mb-0.5">Backend Server URL</Text>
+            <Text className="text-subtext text-[12px]" numberOfLines={1}>
               {serverUrl}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={Theme.colors.subtext} />
+          <Ionicons name="chevron-forward" size={20} color="#A0A0A0" />
         </TouchableOpacity>
 
         {/* Data Portability Section */}
-        <Text style={styles.sectionHeader}>PORTABILITY & BACKUPS</Text>
-        <TouchableOpacity style={styles.card} onPress={handleExport} activeOpacity={0.7}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="cloud-download-outline" size={22} color={Theme.colors.primary} />
+        <Text className="text-subtext text-[11px] font-extrabold tracking-wider mt-4 mb-2">PORTABILITY & BACKUPS</Text>
+        <TouchableOpacity className="flex-row items-center bg-surfaceContainer p-4 rounded-2xl mb-4 border border-border" onPress={handleExport} activeOpacity={0.7}>
+          <View className="w-11 h-11 rounded-full bg-surfaceContainerHigh items-center justify-center">
+            <Ionicons name="cloud-download-outline" size={22} color="#FF5959" />
           </View>
-          <View style={styles.cardContent}>
-            <Text style={styles.cardTitle}>Export Full Library (JSON)</Text>
-            <Text style={styles.cardSubtitle}>
+          <View className="flex-1 ml-4">
+            <Text className="text-white text-[15px] font-bold mb-0.5">Export Full Library (JSON)</Text>
+            <Text className="text-subtext text-[12px]">
               Backup all songs, playlists, and metadata into a portable JSON document.
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={Theme.colors.subtext} />
+          <Ionicons name="chevron-forward" size={20} color="#A0A0A0" />
         </TouchableOpacity>
 
         {/* About App */}
-        <Text style={styles.sectionHeader}>ABOUT</Text>
-        <View style={styles.infoCard}>
-          <View style={styles.appRow}>
-            <View style={styles.logoBadge}>
-              <Ionicons name="musical-notes" size={28} color={Theme.colors.primary} />
+        <Text className="text-subtext text-[11px] font-extrabold tracking-wider mt-4 mb-2">ABOUT</Text>
+        <View className="bg-surfaceContainer p-5 rounded-2xl border border-border">
+          <View className="flex-row items-center gap-3.5 mb-4">
+            <View className="w-12 h-12 rounded-xl bg-surfaceContainerHigh items-center justify-center">
+              <Ionicons name="musical-notes" size={28} color="#FF5959" />
             </View>
             <View>
-              <Text style={styles.appName}>Resonance Mobile</Text>
-              <Text style={styles.appVersion}>Version 1.0.0 (Expo SDK 57)</Text>
+              <Text className="text-white text-[17px] font-extrabold">Resonance Mobile</Text>
+              <Text className="text-primary text-[12px] font-semibold mt-0.5">Version 1.0.0 (Expo SDK 57)</Text>
             </View>
           </View>
-          <Text style={styles.appDesc}>
+          <Text className="text-subtext text-[13px] leading-5">
             High-Performance YouTube Audio Player & Music Library for React Native.
           </Text>
         </View>
@@ -90,105 +88,3 @@ export default function SettingsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  content: {
-    padding: Theme.spacing.lg,
-    paddingBottom: 140,
-  },
-  header: {
-    marginBottom: Theme.spacing.lg,
-  },
-  headerSubtitle: {
-    color: Theme.colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  headerTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 26,
-    fontWeight: '800',
-  },
-  sectionHeader: {
-    color: Theme.colors.subtext,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginTop: Theme.spacing.md,
-    marginBottom: Theme.spacing.sm,
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainer,
-    padding: Theme.spacing.md,
-    borderRadius: Theme.borderRadius.lg,
-    marginBottom: Theme.spacing.md,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardContent: {
-    flex: 1,
-    marginLeft: Theme.spacing.md,
-  },
-  cardTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  cardSubtitle: {
-    color: Theme.colors.subtext,
-    fontSize: 12,
-  },
-  infoCard: {
-    backgroundColor: Theme.colors.surfaceContainer,
-    padding: Theme.spacing.lg,
-    borderRadius: Theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  appRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginBottom: Theme.spacing.md,
-  },
-  logoBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appName: {
-    color: Theme.colors.onSurface,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  appVersion: {
-    color: Theme.colors.primary,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  appDesc: {
-    color: Theme.colors.subtext,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-});

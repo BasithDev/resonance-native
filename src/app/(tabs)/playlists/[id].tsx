@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
   TextInput,
   Alert,
@@ -17,7 +16,6 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudio, Track } from '../../../context/AudioContext';
 import { SongItem } from '../../../components/SongItem';
-import { Theme } from '../../../constants/theme';
 import * as api from '../../../services/api';
 
 function formatTotalRuntime(songs?: any[]): string {
@@ -144,7 +142,7 @@ export default function PlaylistDetailScreen() {
       await api.removeSongFromPlaylist(id as string, songId);
       setSongs((prev) => prev.filter((s) => s.id !== songId));
     } catch (e) {
-      Alert.alert('Error', 'Failed to remove song from playlist.');
+      Alert.alert('Error', 'Failed to remove song from playlist');
     }
   }
 
@@ -160,15 +158,15 @@ export default function PlaylistDetailScreen() {
     songs.find((s) => s.thumbnailUrl || s.coverUrl)?.coverUrl;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-background">
       {/* Top Header */}
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={handleGoBack} style={styles.iconBtn}>
-          <Ionicons name="arrow-back" size={24} color={Theme.colors.onSurface} />
+      <View className="flex-row items-center justify-between px-4 py-2 border-b border-border">
+        <TouchableOpacity onPress={handleGoBack} className="p-2">
+          <Ionicons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={styles.topBarTitle} numberOfLines={1}>
+        <View className="flex-row items-center gap-1.5 flex-1 justify-center mx-2">
+          <Text className="text-white text-[17px] font-bold" numberOfLines={1}>
             {playlist?.name || 'Playlist'}
           </Text>
           {id !== 'all-songs' && (
@@ -177,76 +175,74 @@ export default function PlaylistDetailScreen() {
                 setRenameInput(playlist?.name || '');
                 setIsRenameModalOpen(true);
               }}
-              style={{ padding: 4 }}
+              className="p-1"
             >
-              <Ionicons name="pencil" size={16} color={Theme.colors.primary} />
+              <Ionicons name="pencil" size={16} color="#FF5959" />
             </TouchableOpacity>
           )}
         </View>
 
         {id !== 'all-songs' ? (
-          <TouchableOpacity onPress={handleDeletePlaylist} style={styles.iconBtn}>
-            <Ionicons name="trash-outline" size={22} color={Theme.colors.error} />
+          <TouchableOpacity onPress={handleDeletePlaylist} className="p-2">
+            <Ionicons name="trash-outline" size={22} color="#FF4D4D" />
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 34 }} />
+          <View className="w-9" />
         )}
       </View>
 
       {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Theme.colors.primary} />
+        <View className="flex-1 items-center justify-center p-8">
+          <ActivityIndicator size="large" color="#FF5959" />
         </View>
       ) : (
         <FlatList
           data={filteredSongs}
           keyExtractor={(item) => item.id || Math.random().toString()}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
           ListHeaderComponent={
             <View>
               {/* Hero Banner */}
-              <View style={styles.heroSection}>
+              <View className="items-center py-6 border-b border-border mb-4">
                 {heroCoverUrl ? (
-                  <Image source={{ uri: heroCoverUrl }} style={styles.heroCoverImage} resizeMode="cover" />
+                  <Image source={{ uri: heroCoverUrl }} className="w-[140px] h-[140px] rounded-2xl mb-4" resizeMode="cover" />
                 ) : (
-                  <View style={styles.heroIconBox}>
-                    <Ionicons name="musical-notes" size={40} color={Theme.colors.primary} />
+                  <View className="w-[140px] h-[140px] rounded-2xl bg-surfaceContainerHigh items-center justify-center mb-4">
+                    <Ionicons name="musical-notes" size={40} color="#FF5959" />
                   </View>
                 )}
-                <Text style={styles.heroTitle}>{playlist?.name}</Text>
-                <Text style={styles.heroSub}>
+                <Text className="text-white text-[22px] font-black text-center mb-1">{playlist?.name}</Text>
+                <Text className="text-subtext text-[13px] font-semibold mb-4">
                   {songs.length} {songs.length === 1 ? 'track' : 'tracks'}{formatTotalRuntime(songs) ? ` • ${formatTotalRuntime(songs)}` : ''}
                 </Text>
 
                 {/* Hero Actions */}
-                <View style={styles.heroActions}>
+                <View className="flex-row gap-3">
                   <TouchableOpacity
-                    style={[styles.heroBtn, { backgroundColor: Theme.colors.primary }]}
+                    className="flex-row items-center gap-1.5 bg-primary px-6 py-2.5 rounded-full"
                     onPress={() => songs.length > 0 && playTrack(songs[0], songs)}
                   >
                     <Ionicons name="play" size={20} color="#ffffff" />
-                    <Text style={styles.heroBtnText}>Play</Text>
+                    <Text className="text-white text-[14px] font-bold">Play</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.heroBtn, { backgroundColor: Theme.colors.surfaceContainerHigh }]}
+                    className="flex-row items-center gap-1.5 bg-surfaceContainerHigh px-6 py-2.5 rounded-full border border-border"
                     onPress={() => songs.length > 0 && playTrack(songs[0], songs, { shuffle: true })}
                   >
-                    <Ionicons name="shuffle" size={20} color={Theme.colors.primary} />
-                    <Text style={[styles.heroBtnText, { color: Theme.colors.onSurface }]}>
-                      Shuffle
-                    </Text>
+                    <Ionicons name="shuffle" size={20} color="#FF5959" />
+                    <Text className="text-white text-[14px] font-bold">Shuffle</Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
               {/* In-Playlist Search Filter */}
-              <View style={styles.searchBar}>
-                <Ionicons name="search" size={18} color={Theme.colors.subtext} />
+              <View className="flex-row items-center bg-surfaceContainer px-4 h-11 rounded-full border border-border mb-3">
+                <Ionicons name="search" size={18} color="#A0A0A0" />
                 <TextInput
-                  style={styles.searchInput}
+                  className="flex-1 text-white ml-2 text-[14px]"
                   placeholder="Search inside playlist..."
-                  placeholderTextColor={Theme.colors.subtext}
+                  placeholderTextColor="#A0A0A0"
                   value={filterQuery}
                   onChangeText={setFilterQuery}
                 />
@@ -254,8 +250,8 @@ export default function PlaylistDetailScreen() {
             </View>
           }
           ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>No songs in this playlist yet.</Text>
+            <View className="py-12 items-center justify-center">
+              <Text className="text-subtext text-[14px]">No songs in this playlist yet.</Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -291,34 +287,34 @@ export default function PlaylistDetailScreen() {
         animationType="fade"
         onRequestClose={() => !isDeleting && setIsDeleteModalOpen(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalIconCircle}>
-              <Ionicons name="trash-outline" size={28} color={Theme.colors.error} />
+        <View className="flex-1 bg-black/70 justify-center p-5">
+          <View className="bg-surfaceContainerHigh rounded-2xl p-5 border border-border items-center">
+            <View className="w-13 h-13 rounded-full bg-error/15 items-center justify-center mb-3">
+              <Ionicons name="trash-outline" size={28} color="#FF4D4D" />
             </View>
-            <Text style={styles.modalTitle}>Delete Playlist?</Text>
-            <Text style={styles.modalMessage}>
+            <Text className="text-white text-[18px] font-bold mb-1">Delete Playlist?</Text>
+            <Text className="text-subtext text-[13px] text-center mb-5 leading-5">
               Are you sure you want to delete "{playlist?.name}"? This action cannot be undone.
             </Text>
 
-            <View style={styles.modalBtnRow}>
+            <View className="flex-row gap-3 w-full">
               <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelModalBtn]}
+                className="flex-1 py-3 rounded-full bg-surfaceContainer border border-border items-center"
                 onPress={() => setIsDeleteModalOpen(false)}
                 disabled={isDeleting}
               >
-                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+                <Text className="text-subtext text-[14px] font-semibold">Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalBtn, styles.deleteModalBtn, isDeleting && { opacity: 0.6 }]}
+                className={`flex-1 py-3 rounded-full bg-error items-center ${isDeleting ? 'opacity-60' : ''}`}
                 onPress={confirmDeletePlaylist}
                 disabled={isDeleting}
               >
                 {isDeleting ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={styles.deleteModalBtnText}>Delete</Text>
+                  <Text className="text-white text-[14px] font-bold">Delete</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -333,46 +329,35 @@ export default function PlaylistDetailScreen() {
         animationType="fade"
         onRequestClose={() => setIsRenameModalOpen(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={[styles.modalIconCircle, { backgroundColor: 'rgba(255, 89, 89, 0.15)' }]}>
-              <Ionicons name="pencil" size={26} color={Theme.colors.primary} />
+        <View className="flex-1 bg-black/70 justify-center p-5">
+          <View className="bg-surfaceContainerHigh rounded-2xl p-5 border border-border items-center">
+            <View className="w-13 h-13 rounded-full bg-primary/15 items-center justify-center mb-3">
+              <Ionicons name="pencil" size={26} color="#FF5959" />
             </View>
-            <Text style={styles.modalTitle}>Rename Playlist</Text>
+            <Text className="text-white text-[18px] font-bold mb-1">Rename Playlist</Text>
 
             <TextInput
-              style={{
-                width: '100%',
-                backgroundColor: Theme.colors.surfaceContainerHigh,
-                color: Theme.colors.onSurface,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                borderRadius: Theme.borderRadius.md,
-                fontSize: 15,
-                marginVertical: 16,
-                borderWidth: 1,
-                borderColor: Theme.colors.border,
-              }}
+              className="w-full bg-surfaceContainer text-white px-4 py-2.5 rounded-xl text-[15px] my-4 border border-border"
               value={renameInput}
               onChangeText={setRenameInput}
               placeholder="Playlist name..."
-              placeholderTextColor={Theme.colors.subtext}
+              placeholderTextColor="#A0A0A0"
               autoFocus
             />
 
-            <View style={styles.modalBtnRow}>
+            <View className="flex-row gap-3 w-full">
               <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelModalBtn]}
+                className="flex-1 py-3 rounded-full bg-surfaceContainer border border-border items-center"
                 onPress={() => setIsRenameModalOpen(false)}
               >
-                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+                <Text className="text-subtext text-[14px] font-semibold">Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: Theme.colors.primary }]}
+                className="flex-1 py-3 rounded-full bg-primary items-center"
                 onPress={handleRenamePlaylist}
               >
-                <Text style={styles.deleteModalBtnText}>Save</Text>
+                <Text className="text-white text-[14px] font-bold">Save</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -381,184 +366,3 @@ export default function PlaylistDetailScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Theme.spacing.md,
-  },
-  modalContainer: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  modalIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 82, 82, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  modalTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  modalMessage: {
-    color: Theme.colors.subtext,
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  modalBtnRow: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  modalBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: Theme.borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelModalBtn: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  cancelModalBtnText: {
-    color: Theme.colors.onSurface,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  deleteModalBtn: {
-    backgroundColor: Theme.colors.error,
-  },
-  deleteModalBtnText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.lg,
-    paddingVertical: Theme.spacing.sm,
-  },
-  iconBtn: {
-    padding: 6,
-  },
-  topBarTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  heroSection: {
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.lg,
-  },
-  heroIconBox: {
-    width: 84,
-    height: 84,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Theme.spacing.md,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  heroCoverImage: {
-    width: 110,
-    height: 110,
-    borderRadius: Theme.borderRadius.lg,
-    marginBottom: Theme.spacing.md,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  heroTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  heroSub: {
-    color: Theme.colors.subtext,
-    fontSize: 14,
-    marginBottom: Theme.spacing.lg,
-  },
-  heroActions: {
-    flexDirection: 'row',
-    gap: Theme.spacing.md,
-  },
-  heroBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: Theme.borderRadius.full,
-    gap: 8,
-  },
-  heroBtnText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainer,
-    marginHorizontal: Theme.spacing.lg,
-    marginVertical: Theme.spacing.md,
-    paddingHorizontal: Theme.spacing.md,
-    height: 40,
-    borderRadius: Theme.borderRadius.full,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    color: Theme.colors.onSurface,
-    marginLeft: Theme.spacing.sm,
-    fontSize: 13,
-  },
-  listContent: {
-    paddingBottom: 140,
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyBox: {
-    padding: Theme.spacing.xl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: Theme.colors.subtext,
-    fontSize: 14,
-  },
-});

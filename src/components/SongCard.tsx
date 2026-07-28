@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Theme } from '../constants/theme';
 import { Track } from '../context/AudioContext';
 import { CoverArt } from './CoverArt';
 
@@ -23,99 +22,48 @@ function formatDuration(sec?: number) {
 export function SongCard({ track, isPlaying, isCurrent, onPress, onMorePress }: SongCardProps) {
   return (
     <TouchableOpacity
-      style={[styles.card, isCurrent && styles.activeCard]}
+      className={`flex-1 p-2.5 rounded-2xl border mx-1 mb-2.5 relative ${
+        isCurrent
+          ? 'bg-surfaceContainerHigh border-primary/50'
+          : 'bg-surfaceContainer border-border'
+      }`}
       onPress={onPress}
       activeOpacity={0.85}
     >
-      <View style={styles.imageBox}>
+      <View className="w-full aspect-square rounded-xl overflow-hidden items-center justify-center bg-surfaceContainerHighest relative">
         <CoverArt url={track.thumbnailUrl} size={140} borderRadius={14} />
         {isCurrent && (
-          <View style={styles.playingOverlay}>
+          <View className="absolute inset-0 bg-primary/45 items-center justify-center">
             <Ionicons name={isPlaying ? 'stats-chart' : 'pause'} size={20} color="#ffffff" />
           </View>
         )}
       </View>
 
-      <View style={styles.metaBox}>
-        <Text numberOfLines={1} style={[styles.title, isCurrent && styles.activeTitle]}>
+      <View className="mt-2">
+        <Text
+          numberOfLines={1}
+          className={`font-bold text-[14px] mb-0.5 ${
+            isCurrent ? 'text-primary' : 'text-white'
+          }`}
+        >
           {track.title}
         </Text>
-        <Text numberOfLines={1} style={styles.channel}>
+        <Text numberOfLines={1} className="text-subtext text-[12px] font-medium">
           {track.channel || 'Unknown Artist'}
         </Text>
         {track.durationSec ? (
-          <Text style={styles.duration}>{formatDuration(track.durationSec)}</Text>
+          <Text className="text-subtext text-[11px] mt-0.5">{formatDuration(track.durationSec)}</Text>
         ) : null}
       </View>
 
       {onMorePress && (
-        <TouchableOpacity style={styles.moreBtn} onPress={onMorePress}>
-          <Ionicons name="ellipsis-horizontal" size={16} color={Theme.colors.subtext} />
+        <TouchableOpacity
+          className="absolute top-3.5 right-3.5 bg-black/50 p-1.5 rounded-full"
+          onPress={onMorePress}
+        >
+          <Ionicons name="ellipsis-horizontal" size={16} color="#A0A0A0" />
         </TouchableOpacity>
       )}
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.borderRadius.lg,
-    padding: 10,
-    marginHorizontal: 4,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    position: 'relative',
-  },
-  activeCard: {
-    borderColor: 'rgba(255, 89, 89, 0.5)',
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-  },
-  imageBox: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.surfaceContainerHighest,
-  },
-  playingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 89, 89, 0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metaBox: {
-    marginTop: 8,
-  },
-  title: {
-    color: Theme.colors.onSurface,
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  activeTitle: {
-    color: Theme.colors.primary,
-  },
-  channel: {
-    color: Theme.colors.subtext,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  duration: {
-    color: Theme.colors.subtext,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  moreBtn: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 5,
-    borderRadius: 12,
-  },
-});

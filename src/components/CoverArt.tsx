@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Theme } from '../constants/theme';
 
 interface CoverArtProps {
   url?: string;
@@ -9,31 +8,24 @@ interface CoverArtProps {
   borderRadius?: number;
 }
 
-export function CoverArt({ url, size = 48, borderRadius = Theme.borderRadius.md }: CoverArtProps) {
+export function CoverArt({ url, size = 48, borderRadius = 10 }: CoverArtProps) {
   if (url) {
     return (
       <Image
         source={{ uri: url }}
-        style={[styles.image, { width: size, height: size, borderRadius }]}
+        className="bg-surfaceContainerHigh"
+        style={{ width: size, height: size, borderRadius }}
         resizeMode="cover"
       />
     );
   }
 
   return (
-    <View style={[styles.placeholder, { width: size, height: size, borderRadius }]}>
-      <Ionicons name="musical-notes" size={size * 0.45} color={Theme.colors.primary} />
+    <View
+      className="bg-surfaceContainerHigh items-center justify-center"
+      style={{ width: size, height: size, borderRadius }}
+    >
+      <Ionicons name="musical-notes" size={size * 0.45} color="#FF5959" />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  image: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-  },
-  placeholder: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

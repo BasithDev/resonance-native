@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Theme } from '../constants/theme';
+import { Modal, View, Text, TextInput, TouchableOpacity } from 'react-native';
 
 interface CreatePlaylistModalProps {
   visible: boolean;
@@ -19,23 +18,23 @@ export function CreatePlaylistModal({ visible, onClose, onCreate }: CreatePlayli
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.dialog}>
-          <Text style={styles.title}>Create Playlist</Text>
+      <View className="flex-1 bg-black/70 justify-center p-5">
+        <View className="bg-surfaceContainerHigh rounded-2xl p-5 border border-border">
+          <Text className="text-white text-[18px] font-bold mb-4">Create Playlist</Text>
           <TextInput
-            style={styles.input}
+            className="bg-surfaceContainer text-white rounded-xl px-4 py-3 text-[15px] border border-border mb-5"
             placeholder="Playlist name"
-            placeholderTextColor={Theme.colors.subtext}
+            placeholderTextColor="#A0A0A0"
             value={name}
             onChangeText={setName}
             autoFocus
           />
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelText}>Cancel</Text>
+          <View className="flex-row justify-end gap-3">
+            <TouchableOpacity className="px-4 py-2.5" onPress={onClose}>
+              <Text className="text-subtext text-[14px] font-semibold">Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.createBtn} onPress={handleSubmit}>
-              <Text style={styles.createText}>Create</Text>
+            <TouchableOpacity className="bg-primary px-5 py-2.5 rounded-full" onPress={handleSubmit}>
+              <Text className="text-white text-[14px] font-bold">Create</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -43,61 +42,3 @@ export function CreatePlaylistModal({ visible, onClose, onCreate }: CreatePlayli
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    padding: Theme.spacing.lg,
-  },
-  dialog: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    borderRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  title: {
-    color: Theme.colors.onSurface,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: Theme.spacing.md,
-  },
-  input: {
-    backgroundColor: Theme.colors.surfaceContainer,
-    color: Theme.colors.onSurface,
-    borderRadius: Theme.borderRadius.md,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 12,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    marginBottom: Theme.spacing.lg,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: Theme.spacing.md,
-  },
-  cancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  cancelText: {
-    color: Theme.colors.subtext,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  createBtn: {
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: Theme.borderRadius.full,
-  },
-  createText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-});

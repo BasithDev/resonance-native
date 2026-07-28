@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   ActivityIndicator,
   Alert,
   Share,
@@ -14,7 +13,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { Theme } from '../../constants/theme';
 import * as api from '../../services/api';
 
 export default function BackupScreen() {
@@ -62,7 +60,6 @@ export default function BackupScreen() {
         const file = res.assets[0];
         setSelectedFileName(file.name);
 
-        // Fetch local file URI content as text
         const response = await fetch(file.uri);
         const textContent = await response.text();
         setImportJson(textContent);
@@ -115,9 +112,7 @@ export default function BackupScreen() {
         message: jsonStr,
         title: `resonance-backup-${new Date().toISOString().split('T')[0]}.json`,
       });
-    } catch (e) {
-      // share dismissed
-    }
+    } catch (e) {}
   }
 
   // ---------- CSV Export ----------
@@ -145,9 +140,7 @@ export default function BackupScreen() {
         message: csvContent,
         title: `resonance-library-${new Date().toISOString().split('T')[0]}.csv`,
       });
-    } catch (e) {
-      // share dismissed
-    }
+    } catch (e) {}
   }
 
   // ---------- Restore / Import ----------
@@ -166,12 +159,10 @@ export default function BackupScreen() {
       let playlistsToCreate: any[] = [];
 
       if (text.startsWith('{') || text.startsWith('[')) {
-        // Parse JSON payload
         const parsed = JSON.parse(text);
         songsToImport = parsed.songs || (Array.isArray(parsed) ? parsed : []);
         playlistsToCreate = parsed.playlists || [];
       } else if (text.includes(',')) {
-        // Parse CSV spreadsheet
         const lines = text.split('\n').filter((l) => l.trim());
         const startIndex = lines[0].toLowerCase().includes('title') ? 1 : 0;
         for (let i = startIndex; i < lines.length; i++) {
@@ -187,7 +178,6 @@ export default function BackupScreen() {
           }
         }
       } else {
-        // Parse line-by-line YouTube URLs or IDs
         const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
         songsToImport = lines.map((line) => {
           let ytid = line;
@@ -213,9 +203,7 @@ export default function BackupScreen() {
                   await api.addSongToPlaylist(created.id, songId).catch(() => {});
                 }
               }
-            } catch (err) {
-              // skip duplicate playlist
-            }
+            } catch (err) {}
           }
         }
       }
@@ -233,74 +221,69 @@ export default function BackupScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <SafeAreaView className="flex-1 bg-background">
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 140 }}>
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerSubtitle}>DATA PORTABILITY</Text>
-          <Text style={styles.headerTitle}>Export & Restore</Text>
+        <View className="mb-1">
+          <Text className="text-primary text-[11px] font-extrabold tracking-widest">DATA PORTABILITY</Text>
+          <Text className="text-white text-[28px] font-black tracking-tight">Export & Restore</Text>
         </View>
 
-        <Text style={styles.description}>
+        <Text className="text-subtext text-[14px] leading-5 mb-4">
           Backup your music library, export playlists as JSON/CSV spreadsheets, or restore from a backup file.
         </Text>
 
         {/* Summary Stats Cards */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="musical-notes" size={22} color={Theme.colors.primary} />
+        <View className="flex-row gap-3 mb-5">
+          <View className="flex-1 flex-row items-center bg-surfaceContainer rounded-2xl p-4 border border-border gap-3">
+            <View className="w-10 h-10 rounded-full bg-primary/15 items-center justify-center">
+              <Ionicons name="musical-notes" size={22} color="#FF5959" />
             </View>
-            <View style={styles.statTextContainer}>
-              <Text style={styles.statLabel}>Master Library</Text>
-              <Text style={styles.statValue}>
+            <View className="flex-1">
+              <Text className="text-subtext text-[11px] font-semibold">Master Library</Text>
+              <Text className="text-white text-[15px] font-extrabold mt-0.5">
                 {loading ? '...' : `${songs.length} Tracks`}
               </Text>
             </View>
           </View>
 
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="albums" size={22} color={Theme.colors.primary} />
+          <View className="flex-1 flex-row items-center bg-surfaceContainer rounded-2xl p-4 border border-border gap-3">
+            <View className="w-10 h-10 rounded-full bg-primary/15 items-center justify-center">
+              <Ionicons name="albums" size={22} color="#FF5959" />
             </View>
-            <View style={styles.statTextContainer}>
-              <Text style={styles.statLabel}>Custom Playlists</Text>
-              <Text style={styles.statValue}>
+            <View className="flex-1">
+              <Text className="text-subtext text-[11px] font-semibold">Custom Playlists</Text>
+              <Text className="text-white text-[15px] font-extrabold mt-0.5">
                 {loading ? '...' : `${playlists.length} Playlists`}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* ── EXPORT SECTION ── */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="cloud-download-outline" size={22} color={Theme.colors.primary} />
-            <Text style={styles.cardTitle}>Export Library Data</Text>
+        {/* EXPORT SECTION */}
+        <View className="bg-surfaceContainer rounded-2xl p-4 border border-border">
+          <View className="flex-row items-center gap-2.5 mb-1">
+            <Ionicons name="cloud-download-outline" size={22} color="#FF5959" />
+            <Text className="text-white text-[17px] font-extrabold">Export Library Data</Text>
           </View>
 
-          <Text style={styles.cardSubtitle}>
+          <Text className="text-subtext text-[13px] mb-4">
             Select collection to export as JSON or CSV:
           </Text>
 
-          {/* Collection Selector */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.selectorScroll}
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 16 }}>
             <TouchableOpacity
-              style={[
-                styles.selectorPill,
-                selectedPlaylistId === 'all' && styles.selectorPillActive,
-              ]}
+              className={`px-3.5 py-2 rounded-full border ${
+                selectedPlaylistId === 'all'
+                  ? 'bg-primary border-primary'
+                  : 'bg-surfaceContainerHigh border-border'
+              }`}
               onPress={() => setSelectedPlaylistId('all')}
             >
               <Text
-                style={[
-                  styles.selectorText,
-                  selectedPlaylistId === 'all' && styles.selectorTextActive,
-                ]}
+                className={`text-[13px] ${
+                  selectedPlaylistId === 'all' ? 'text-white font-bold' : 'text-subtext font-semibold'
+                }`}
               >
                 Entire Library ({songs.length})
               </Text>
@@ -309,17 +292,17 @@ export default function BackupScreen() {
             {playlists.map((pl) => (
               <TouchableOpacity
                 key={pl.id}
-                style={[
-                  styles.selectorPill,
-                  selectedPlaylistId === pl.id && styles.selectorPillActive,
-                ]}
+                className={`px-3.5 py-2 rounded-full border ${
+                  selectedPlaylistId === pl.id
+                    ? 'bg-primary border-primary'
+                    : 'bg-surfaceContainerHigh border-border'
+                }`}
                 onPress={() => setSelectedPlaylistId(pl.id)}
               >
                 <Text
-                  style={[
-                    styles.selectorText,
-                    selectedPlaylistId === pl.id && styles.selectorTextActive,
-                  ]}
+                  className={`text-[13px] ${
+                    selectedPlaylistId === pl.id ? 'text-white font-bold' : 'text-subtext font-semibold'
+                  }`}
                 >
                   {pl.name} ({(pl.songs || []).length})
                 </Text>
@@ -327,31 +310,29 @@ export default function BackupScreen() {
             ))}
           </ScrollView>
 
-          {/* Export Action Buttons */}
-          <View style={styles.btnRow}>
+          <View className="flex-row gap-2.5 mt-1">
             <TouchableOpacity
-              style={[styles.exportBtn, { backgroundColor: Theme.colors.primary }]}
+              className="flex-1 flex-row items-center justify-center py-3 rounded-full bg-primary gap-1.5"
               onPress={handleExportJSON}
             >
               <Ionicons name="code-download-outline" size={18} color="#ffffff" />
-              <Text style={styles.exportBtnText}>JSON Backup</Text>
+              <Text className="text-white text-[13px] font-bold">JSON Backup</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.exportBtn, { backgroundColor: Theme.colors.surfaceContainerHigh }]}
+              className="flex-1 flex-row items-center justify-center py-3 rounded-full bg-surfaceContainerHigh gap-1.5"
               onPress={handleExportCSV}
             >
-              <Ionicons name="document-text-outline" size={18} color={Theme.colors.onSurface} />
-              <Text style={[styles.exportBtnText, { color: Theme.colors.onSurface }]}>
-                CSV Spreadsheet
-              </Text>
+              <Ionicons name="document-text-outline" size={18} color="#ffffff" />
+              <Text className="text-white text-[13px] font-bold">CSV Spreadsheet</Text>
             </TouchableOpacity>
           </View>
 
           {exportData !== '' && (
-            <View style={styles.exportResultBox}>
+            <View className="mt-4">
               <TextInput
-                style={styles.jsonPreview}
+                className="bg-surfaceContainerHigh text-subtext text-[11px] h-25 rounded-xl p-3"
+                style={{ fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }}
                 multiline
                 editable={false}
                 value={exportData}
@@ -360,45 +341,44 @@ export default function BackupScreen() {
           )}
         </View>
 
-        {/* ── IMPORT & RESTORE SECTION ── */}
-        <View style={[styles.card, { marginTop: Theme.spacing.lg }]}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="cloud-upload-outline" size={22} color={Theme.colors.primary} />
-            <Text style={styles.cardTitle}>Import & Restore Library</Text>
+        {/* IMPORT & RESTORE SECTION */}
+        <View className="bg-surfaceContainer rounded-2xl p-4 border border-border mt-5">
+          <View className="flex-row items-center gap-2.5 mb-1">
+            <Ionicons name="cloud-upload-outline" size={22} color="#FF5959" />
+            <Text className="text-white text-[17px] font-extrabold">Import & Restore Library</Text>
           </View>
 
-          <Text style={styles.cardSubtitle}>
+          <Text className="text-subtext text-[13px] mb-4">
             Upload a .json / .csv backup file from storage or paste URLs below:
           </Text>
 
-          {/* File Picker Dropzone Card */}
           <TouchableOpacity
-            style={styles.fileDropzone}
+            className="border-2 border-dashed border-primary bg-primary/5 rounded-xl p-4 items-center justify-center mb-4"
             onPress={handlePickDocument}
             activeOpacity={0.8}
           >
-            <Ionicons name="folder-open-outline" size={32} color={Theme.colors.primary} />
+            <Ionicons name="folder-open-outline" size={32} color="#FF5959" />
             {selectedFileName ? (
-              <View style={styles.fileLoadedBadge}>
-                <Text style={styles.fileLoadedText} numberOfLines={1}>
+              <View className="bg-primary/15 px-3 py-1.5 rounded-md mt-1.5">
+                <Text className="text-primary text-[13px] font-bold" numberOfLines={1}>
                   📄 {selectedFileName}
                 </Text>
               </View>
             ) : (
               <>
-                <Text style={styles.dropzoneTitle}>Tap to select .json or .csv backup file</Text>
-                <Text style={styles.dropzoneSubtitle}>Opens system File Manager</Text>
+                <Text className="text-white text-[13px] font-bold mt-1.5">Tap to select .json or .csv backup file</Text>
+                <Text className="text-subtext text-[11px] mt-0.5">Opens system File Manager</Text>
               </>
             )}
           </TouchableOpacity>
 
-          {/* Or Paste JSON / URLs Text Area */}
           <TextInput
-            style={styles.importInput}
+            className="bg-surfaceContainerHigh text-white text-[13px] min-h-[90px] rounded-xl p-3 mb-4 border border-border"
+            style={{ textAlignVertical: 'top' }}
             multiline
             numberOfLines={5}
             placeholder='Or paste JSON payload {"songs": [...]} or YouTube URLs line-by-line...'
-            placeholderTextColor={Theme.colors.subtext}
+            placeholderTextColor="#A0A0A0"
             value={importJson}
             onChangeText={(txt) => {
               setImportJson(txt);
@@ -407,7 +387,9 @@ export default function BackupScreen() {
           />
 
           <TouchableOpacity
-            style={[styles.restoreBtn, isImporting && { opacity: 0.6 }]}
+            className={`bg-primary flex-row items-center justify-center py-3.5 rounded-full gap-2 ${
+              isImporting ? 'opacity-60' : ''
+            }`}
             onPress={handleRestore}
             disabled={isImporting}
           >
@@ -416,233 +398,16 @@ export default function BackupScreen() {
             ) : (
               <>
                 <Ionicons name="refresh-circle-outline" size={20} color="#ffffff" />
-                <Text style={styles.restoreBtnText}>Execute Restore & Import</Text>
+                <Text className="text-white text-[14px] font-bold">Execute Restore & Import</Text>
               </>
             )}
           </TouchableOpacity>
 
           {statusMsg !== '' && (
-            <Text style={styles.statusText}>{statusMsg}</Text>
+            <Text className="text-primary text-[13px] font-semibold text-center mt-2.5">{statusMsg}</Text>
           )}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  content: {
-    paddingHorizontal: Theme.spacing.md,
-    paddingTop: Theme.spacing.md,
-    paddingBottom: 140,
-  },
-  header: {
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    color: Theme.colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  headerTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  description: {
-    color: Theme.colors.subtext,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: Theme.spacing.md,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Theme.spacing.sm,
-    marginBottom: Theme.spacing.lg,
-  },
-  statCard: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.md,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    gap: 12,
-  },
-  statIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 89, 89, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statTextContainer: {
-    flex: 1,
-  },
-  statLabel: {
-    color: Theme.colors.subtext,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  statValue: {
-    color: Theme.colors.onSurface,
-    fontSize: 15,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  card: {
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.md,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 4,
-  },
-  cardTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  cardSubtitle: {
-    color: Theme.colors.subtext,
-    fontSize: 13,
-    marginBottom: Theme.spacing.md,
-  },
-  selectorScroll: {
-    gap: 8,
-    paddingBottom: Theme.spacing.md,
-  },
-  selectorPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: Theme.borderRadius.full,
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  selectorPillActive: {
-    backgroundColor: Theme.colors.primary,
-    borderColor: Theme.colors.primary,
-  },
-  selectorText: {
-    color: Theme.colors.subtext,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  selectorTextActive: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  btnRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
-  },
-  exportBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: Theme.borderRadius.full,
-    gap: 6,
-  },
-  exportBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  exportResultBox: {
-    marginTop: Theme.spacing.md,
-  },
-  jsonPreview: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    color: Theme.colors.subtext,
-    fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    height: 100,
-    borderRadius: Theme.borderRadius.md,
-    padding: Theme.spacing.sm,
-  },
-  fileDropzone: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: Theme.colors.primary,
-    backgroundColor: 'rgba(255, 89, 89, 0.05)',
-    borderRadius: Theme.borderRadius.md,
-    padding: Theme.spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Theme.spacing.md,
-  },
-  dropzoneTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 6,
-  },
-  dropzoneSubtitle: {
-    color: Theme.colors.subtext,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  fileLoadedBadge: {
-    backgroundColor: 'rgba(255, 89, 89, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: Theme.borderRadius.md,
-    marginTop: 6,
-  },
-  fileLoadedText: {
-    color: Theme.colors.primary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  importInput: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    color: Theme.colors.onSurface,
-    fontSize: 13,
-    minHeight: 90,
-    borderRadius: Theme.borderRadius.md,
-    padding: Theme.spacing.sm,
-    textAlignVertical: 'top',
-    marginBottom: Theme.spacing.md,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  restoreBtn: {
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 13,
-    borderRadius: Theme.borderRadius.full,
-    gap: 8,
-  },
-  restoreBtnText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  statusText: {
-    color: Theme.colors.primary,
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-});

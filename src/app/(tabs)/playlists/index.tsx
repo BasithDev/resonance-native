@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
   RefreshControl,
   TextInput,
@@ -16,7 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAudio } from '../../../context/AudioContext';
 import { PlaylistCard } from '../../../components/PlaylistCard';
 import { CreatePlaylistModal } from '../../../components/CreatePlaylistModal';
-import { Theme } from '../../../constants/theme';
 import * as api from '../../../services/api';
 
 export default function PlaylistsScreen() {
@@ -109,33 +107,37 @@ export default function PlaylistsScreen() {
     : [defaultAllSongsPlaylist, ...filteredPlaylists];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
-      <View style={styles.header}>
+      <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
         <View>
-          <Text style={styles.headerSubtitle}>COLLECTIONS</Text>
-          <Text style={styles.headerTitle}>Your Playlists</Text>
+          <Text className="text-primary text-[11px] font-extrabold tracking-widest">COLLECTIONS</Text>
+          <Text className="text-white text-[28px] font-black tracking-tight">Your Playlists</Text>
         </View>
 
-        <TouchableOpacity style={styles.addBtn} onPress={() => setIsCreateOpen(true)} activeOpacity={0.8}>
+        <TouchableOpacity
+          className="w-10.5 h-10.5 rounded-full bg-primary items-center justify-center shadow-md"
+          onPress={() => setIsCreateOpen(true)}
+          activeOpacity={0.8}
+        >
           <Ionicons name="add" size={24} color="#ffffff" />
         </TouchableOpacity>
       </View>
 
       {/* Search Filter Bar */}
-      <View style={styles.searchRow}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color={Theme.colors.subtext} />
+      <View className="px-4 py-2">
+        <View className="flex-row items-center bg-surfaceContainer px-4 h-11 rounded-full border border-border">
+          <Ionicons name="search" size={18} color="#A0A0A0" />
           <TextInput
-            style={styles.searchInput}
+            className="flex-1 text-white ml-2 text-[14px]"
             placeholder="Find a playlist..."
-            placeholderTextColor={Theme.colors.subtext}
+            placeholderTextColor="#A0A0A0"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={Theme.colors.subtext} />
+              <Ionicons name="close-circle" size={18} color="#A0A0A0" />
             </TouchableOpacity>
           )}
         </View>
@@ -143,8 +145,8 @@ export default function PlaylistsScreen() {
 
       {/* 2-Column Grid of Big Playlist Cards */}
       {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={Theme.colors.primary} />
+        <View className="p-8 items-center justify-center">
+          <ActivityIndicator size="large" color="#FF5959" />
         </View>
       ) : (
         <FlatList
@@ -152,21 +154,21 @@ export default function PlaylistsScreen() {
           data={gridData}
           numColumns={2}
           keyExtractor={(item) => item.id}
-          columnWrapperStyle={styles.columnWrapper}
-          contentContainerStyle={styles.listContent}
+          columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 8 }}
+          contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 140 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={Theme.colors.primary}
+              tintColor="#FF5959"
             />
           }
           ListEmptyComponent={
             gridData.length === 0 ? (
-              <View style={styles.centerContainer}>
-                <Ionicons name="search-outline" size={48} color={Theme.colors.subtext} />
-                <Text style={styles.emptyTitle}>No playlists found</Text>
-                <Text style={styles.emptySubtitle}>No playlists match "{searchQuery}"</Text>
+              <View className="p-8 items-center justify-center">
+                <Ionicons name="search-outline" size={48} color="#A0A0A0" />
+                <Text className="text-white text-[18px] font-bold mt-4">No playlists found</Text>
+                <Text className="text-subtext text-[14px] text-center mt-1.5">No playlists match "{searchQuery}"</Text>
               </View>
             ) : null
           }
@@ -188,88 +190,3 @@ export default function PlaylistsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.md,
-    paddingTop: Theme.spacing.md,
-    paddingBottom: Theme.spacing.sm,
-  },
-  headerSubtitle: {
-    color: Theme.colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  headerTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  addBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: Theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Theme.colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  searchRow: {
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainer,
-    paddingHorizontal: Theme.spacing.md,
-    height: 46,
-    borderRadius: Theme.borderRadius.full,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    color: Theme.colors.onSurface,
-    marginLeft: Theme.spacing.sm,
-    fontSize: 14,
-  },
-  columnWrapper: {
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  listContent: {
-    paddingHorizontal: Theme.spacing.md - 4,
-    paddingBottom: 140,
-  },
-  centerContainer: {
-    padding: Theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: Theme.spacing.md,
-  },
-  emptySubtitle: {
-    color: Theme.colors.subtext,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-});

@@ -1,9 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudio } from '../context/AudioContext';
 import { CoverArt } from './CoverArt';
-import { Theme } from '../constants/theme';
 
 export function MiniPlayer() {
   const {
@@ -20,114 +19,57 @@ export function MiniPlayer() {
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      className="absolute bottom-[84px] left-4 right-4 bg-surfaceContainerHigh rounded-2xl overflow-hidden border border-border shadow-lg elevation-8"
       activeOpacity={0.9}
       onPress={() => setIsPlayerOpen(true)}
     >
       {/* Top Progress Rail */}
-      <View style={styles.progressRailBackground}>
-        <View style={[styles.progressRailFill, { width: `${Math.min(100, progress * 100)}%` }]} />
+      <View className="h-[3px] bg-surfaceContainerHighest w-full">
+        <View className="h-[3px] bg-primary" style={{ width: `${Math.min(100, progress * 100)}%` }} />
       </View>
 
-      <View style={styles.inner}>
+      <View className="flex-row items-center px-4 py-2">
         <CoverArt url={playerTrack.thumbnailUrl} size={42} borderRadius={8} />
 
-        <View style={styles.info}>
-          <Text numberOfLines={1} style={styles.title}>
+        <View className="flex-1 ml-3 justify-center">
+          <Text numberOfLines={1} className="text-white text-[14px] font-bold">
             {playerTrack.title}
           </Text>
-          <Text numberOfLines={1} style={styles.channel}>
+          <Text numberOfLines={1} className="text-subtext text-[12px] mt-0.5">
             {playerTrack.channel || 'Unknown Artist'}
           </Text>
         </View>
 
-        <View style={styles.controls}>
+        <View className="flex-row items-center gap-2">
           <TouchableOpacity
-            style={styles.actionBtn}
+            className="p-1.5"
             onPress={(e) => {
               e.stopPropagation();
               togglePlayPause();
             }}
           >
             {isAudioLoading ? (
-              <ActivityIndicator size="small" color={Theme.colors.primary} />
+              <ActivityIndicator size="small" color="#FF5959" />
             ) : (
               <Ionicons
                 name={isPlaying ? 'pause' : 'play'}
                 size={22}
-                color={Theme.colors.onSurface}
+                color="#ffffff"
               />
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionBtn}
+            className="p-1.5"
             onPress={(e) => {
               e.stopPropagation();
               playNext();
             }}
           >
-            <Ionicons name="play-skip-forward" size={20} color={Theme.colors.onSurface} />
+            <Ionicons name="play-skip-forward" size={20} color="#ffffff" />
           </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    bottom: 84, // Pushed above bottom tabs
-    left: Theme.spacing.md,
-    right: Theme.spacing.md,
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    borderRadius: Theme.borderRadius.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  progressRailBackground: {
-    height: 3,
-    backgroundColor: Theme.colors.surfaceContainerHighest,
-    width: '100%',
-  },
-  progressRailFill: {
-    height: 3,
-    backgroundColor: Theme.colors.primary,
-  },
-  inner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 8,
-  },
-  info: {
-    flex: 1,
-    marginLeft: Theme.spacing.md,
-    justifyContent: 'center',
-  },
-  title: {
-    color: Theme.colors.onSurface,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  channel: {
-    color: Theme.colors.subtext,
-    fontSize: 12,
-    marginTop: 1,
-  },
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionBtn: {
-    padding: 6,
-  },
-});

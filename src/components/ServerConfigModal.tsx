@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Theme } from '../constants/theme';
+import { Modal, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useAudio } from '../context/AudioContext';
 
 export function ServerConfigModal() {
@@ -19,29 +18,29 @@ export function ServerConfigModal() {
 
   return (
     <Modal visible={isServerModalOpen} transparent animationType="fade" onRequestClose={() => setIsServerModalOpen(false)}>
-      <View style={styles.overlay}>
-        <View style={styles.dialog}>
-          <Text style={styles.title}>Backend Server Settings</Text>
-          <Text style={styles.subtitle}>
+      <View className="flex-1 bg-black/70 justify-center p-5">
+        <View className="bg-surfaceContainerHigh rounded-2xl p-5 border border-border">
+          <Text className="text-white text-[18px] font-bold mb-1.5">Backend Server Settings</Text>
+          <Text className="text-subtext text-[13px] leading-5 mb-4">
             Enter your local PC IP address so Expo Go on your mobile device can reach the backend.
           </Text>
 
           <TextInput
-            style={styles.input}
+            className="bg-surfaceContainer text-white rounded-xl px-4 py-3 text-[15px] border border-border mb-5"
             value={url}
             onChangeText={setUrl}
             placeholder="http://192.168.1.50:4000"
-            placeholderTextColor={Theme.colors.subtext}
+            placeholderTextColor="#A0A0A0"
             autoCapitalize="none"
             autoCorrect={false}
           />
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsServerModalOpen(false)}>
-              <Text style={styles.cancelText}>Cancel</Text>
+          <View className="flex-row justify-end gap-3">
+            <TouchableOpacity className="px-4 py-2.5" onPress={() => setIsServerModalOpen(false)}>
+              <Text className="text-subtext text-[14px] font-semibold">Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-              <Text style={styles.saveText}>Save URL</Text>
+            <TouchableOpacity className="bg-primary px-5 py-2.5 rounded-full" onPress={handleSave}>
+              <Text className="text-white text-[14px] font-bold">Save URL</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -49,67 +48,3 @@ export function ServerConfigModal() {
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    padding: Theme.spacing.lg,
-  },
-  dialog: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    borderRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  title: {
-    color: Theme.colors.onSurface,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  subtitle: {
-    color: Theme.colors.subtext,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: Theme.spacing.md,
-  },
-  input: {
-    backgroundColor: Theme.colors.surfaceContainer,
-    color: Theme.colors.onSurface,
-    borderRadius: Theme.borderRadius.md,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 12,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    marginBottom: Theme.spacing.lg,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: Theme.spacing.md,
-  },
-  cancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  cancelText: {
-    color: Theme.colors.subtext,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  saveBtn: {
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: Theme.borderRadius.full,
-  },
-  saveText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-});

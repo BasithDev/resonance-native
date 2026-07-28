@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   ActivityIndicator,
   Alert,
 } from 'react-native';
@@ -13,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudio } from '../../context/AudioContext';
 import { CoverArt } from '../../components/CoverArt';
-import { Theme } from '../../constants/theme';
 import * as api from '../../services/api';
 
 export default function ImportScreen() {
@@ -61,25 +59,25 @@ export default function ImportScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.headerSubtitle}>INGESTION</Text>
-          <Text style={styles.headerTitle}>Import Link</Text>
+    <SafeAreaView className="flex-1 bg-background">
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 140 }}>
+        <View className="mb-1">
+          <Text className="text-primary text-[11px] font-extrabold tracking-widest">INGESTION</Text>
+          <Text className="text-white text-[26px] font-extrabold">Import Link</Text>
         </View>
 
-        <Text style={styles.description}>
+        <Text className="text-subtext text-[14px] leading-5 mb-5">
           Paste any YouTube song video URL or full Playlist link below to extract audio & add to your library.
         </Text>
 
         {/* Input Card */}
-        <View style={styles.card}>
-          <View style={styles.inputRow}>
-            <Ionicons name="link" size={20} color={Theme.colors.primary} />
+        <View className="bg-surfaceContainer rounded-2xl p-4 border border-border">
+          <View className="flex-row items-center bg-surfaceContainerHigh rounded-xl px-4 h-12 mb-4">
+            <Ionicons name="link" size={20} color="#FF5959" />
             <TextInput
-              style={styles.input}
+              className="flex-1 text-white ml-2.5 text-[14px]"
               placeholder="https://youtube.com/watch?v=..."
-              placeholderTextColor={Theme.colors.subtext}
+              placeholderTextColor="#A0A0A0"
               value={url}
               onChangeText={setUrl}
               autoCapitalize="none"
@@ -87,13 +85,15 @@ export default function ImportScreen() {
             />
             {url.length > 0 && (
               <TouchableOpacity onPress={() => setUrl('')}>
-                <Ionicons name="close-circle" size={18} color={Theme.colors.subtext} />
+                <Ionicons name="close-circle" size={18} color="#A0A0A0" />
               </TouchableOpacity>
             )}
           </View>
 
           <TouchableOpacity
-            style={[styles.resolveBtn, loading && { opacity: 0.6 }]}
+            className={`bg-primary flex-row items-center justify-center py-3 rounded-full gap-2 ${
+              loading ? 'opacity-60' : ''
+            }`}
             onPress={handleResolve}
             disabled={loading}
           >
@@ -102,7 +102,7 @@ export default function ImportScreen() {
             ) : (
               <>
                 <Ionicons name="search" size={18} color="#ffffff" />
-                <Text style={styles.resolveBtnText}>Resolve Link</Text>
+                <Text className="text-white text-[14px] font-bold">Resolve Link</Text>
               </>
             )}
           </TouchableOpacity>
@@ -110,41 +110,41 @@ export default function ImportScreen() {
 
         {/* Preview Output */}
         {previewData && (
-          <View style={styles.previewCard}>
-            <Text style={styles.previewLabel}>PREVIEW RESULT</Text>
+          <View className="bg-surfaceContainerHigh rounded-2xl p-5 mt-5 border border-border">
+            <Text className="text-primary text-[11px] font-extrabold tracking-wider mb-4">PREVIEW RESULT</Text>
 
             {previewData.type === 'video' ? (
-              <View style={styles.videoPreview}>
+              <View className="flex-row mb-5">
                 <CoverArt url={previewData.thumbnailUrl} size={72} borderRadius={12} />
-                <View style={styles.previewInfo}>
-                  <Text style={styles.previewTitle} numberOfLines={2}>
+                <View className="flex-1 ml-4">
+                  <Text className="text-white text-[15px] font-bold mb-1" numberOfLines={2}>
                     {previewData.title}
                   </Text>
-                  <Text style={styles.previewChannel}>{previewData.channel || 'Artist'}</Text>
+                  <Text className="text-subtext text-[13px] mb-2">{previewData.channel || 'Artist'}</Text>
 
                   <TouchableOpacity
-                    style={styles.previewPlayBtn}
+                    className="flex-row items-center gap-1"
                     onPress={() => playTrack(previewData)}
                   >
-                    <Ionicons name="play" size={16} color={Theme.colors.primary} />
-                    <Text style={styles.previewPlayText}>Preview Play</Text>
+                    <Ionicons name="play" size={16} color="#FF5959" />
+                    <Text className="text-primary text-[13px] font-semibold">Preview Play</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
-              <View style={styles.playlistPreview}>
-                <Ionicons name="albums-outline" size={32} color={Theme.colors.primary} />
-                <Text style={styles.previewTitle}>{previewData.title || 'YouTube Playlist'}</Text>
-                <Text style={styles.previewChannel}>
+              <View className="items-center py-4 mb-4">
+                <Ionicons name="albums-outline" size={32} color="#FF5959" />
+                <Text className="text-white text-[15px] font-bold mt-2">{previewData.title || 'YouTube Playlist'}</Text>
+                <Text className="text-subtext text-[13px] mt-0.5">
                   {previewData.songs?.length || 0} tracks extracted
                 </Text>
 
                 {previewData.songs && previewData.songs.length > 0 && (
                   <ScrollView style={{ maxHeight: 220, width: '100%', marginTop: 12 }}>
                     {previewData.songs.map((s: any, idx: number) => (
-                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5 }}>
+                      <View key={idx} className="flex-row items-center gap-2.5 py-1.5">
                         <CoverArt url={s.thumbnailUrl} size={36} borderRadius={6} />
-                        <Text style={{ color: Theme.colors.onSurface, fontSize: 13, flex: 1 }} numberOfLines={1}>
+                        <Text className="text-white text-[13px] flex-1" numberOfLines={1}>
                           {s.title}
                         </Text>
                       </View>
@@ -155,7 +155,9 @@ export default function ImportScreen() {
             )}
 
             <TouchableOpacity
-              style={[styles.importBtn, importing && { opacity: 0.6 }]}
+              className={`bg-primary flex-row items-center justify-center py-3.5 rounded-full gap-2 ${
+                importing ? 'opacity-60' : ''
+              }`}
               onPress={handleImport}
               disabled={importing}
             >
@@ -164,7 +166,7 @@ export default function ImportScreen() {
               ) : (
                 <>
                   <Ionicons name="download-outline" size={20} color="#ffffff" />
-                  <Text style={styles.importBtnText}>Import to Library</Text>
+                  <Text className="text-white text-[15px] font-bold">Import to Library</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -174,133 +176,3 @@ export default function ImportScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  content: {
-    padding: Theme.spacing.lg,
-    paddingBottom: 140,
-  },
-  header: {
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    color: Theme.colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  headerTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 26,
-    fontWeight: '800',
-  },
-  description: {
-    color: Theme.colors.subtext,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: Theme.spacing.lg,
-  },
-  card: {
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.md,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    borderRadius: Theme.borderRadius.md,
-    paddingHorizontal: Theme.spacing.md,
-    height: 48,
-    marginBottom: Theme.spacing.md,
-  },
-  input: {
-    flex: 1,
-    color: Theme.colors.onSurface,
-    marginLeft: 10,
-    fontSize: 14,
-  },
-  resolveBtn: {
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: Theme.borderRadius.full,
-    gap: 8,
-  },
-  resolveBtnText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  previewCard: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    borderRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.lg,
-    marginTop: Theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  previewLabel: {
-    color: Theme.colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: Theme.spacing.md,
-  },
-  videoPreview: {
-    flexDirection: 'row',
-    marginBottom: Theme.spacing.lg,
-  },
-  previewInfo: {
-    flex: 1,
-    marginLeft: Theme.spacing.md,
-  },
-  previewTitle: {
-    color: Theme.colors.onSurface,
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  previewChannel: {
-    color: Theme.colors.subtext,
-    fontSize: 13,
-    marginBottom: 8,
-  },
-  previewPlayBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  previewPlayText: {
-    color: Theme.colors.primary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  playlistPreview: {
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.md,
-    marginBottom: Theme.spacing.md,
-  },
-  importBtn: {
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: Theme.borderRadius.full,
-    gap: 8,
-  },
-  importBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});

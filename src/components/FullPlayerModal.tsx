@@ -4,7 +4,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   Dimensions,
   ActivityIndicator,
@@ -13,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudio } from '../context/AudioContext';
 import { CoverArt } from './CoverArt';
-import { Theme } from '../constants/theme';
 import { SongItem } from './SongItem';
 
 const { width } = Dimensions.get('window');
@@ -62,93 +60,97 @@ export function FullPlayerModal() {
       presentationStyle="fullScreen"
       onRequestClose={() => setIsPlayerOpen(false)}
     >
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView className="flex-1 bg-background">
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setIsPlayerOpen(false)} style={styles.headerBtn}>
-            <Ionicons name="chevron-down" size={28} color={Theme.colors.onSurface} />
+        <View className="flex-row items-center justify-between px-5 py-2">
+          <TouchableOpacity onPress={() => setIsPlayerOpen(false)} className="p-1.5">
+            <Ionicons name="chevron-down" size={28} color="#ffffff" />
           </TouchableOpacity>
 
-          <View style={styles.tabToggleContainer}>
+          <View className="flex-row bg-surfaceContainer rounded-full p-1">
             <TouchableOpacity
-              style={[styles.tabBtn, activeTab === 'player' && styles.tabBtnActive]}
+              className={`px-4 py-1.5 rounded-full ${activeTab === 'player' ? 'bg-primary' : ''}`}
               onPress={() => setActiveTab('player')}
             >
-              <Text style={[styles.tabText, activeTab === 'player' && styles.tabTextActive]}>
+              <Text className={`text-[13px] font-semibold ${activeTab === 'player' ? 'text-white' : 'text-subtext'}`}>
                 Playing
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tabBtn, activeTab === 'queue' && styles.tabBtnActive]}
+              className={`px-4 py-1.5 rounded-full ${activeTab === 'queue' ? 'bg-primary' : ''}`}
               onPress={() => setActiveTab('queue')}
             >
-              <Text style={[styles.tabText, activeTab === 'queue' && styles.tabTextActive]}>
+              <Text className={`text-[13px] font-semibold ${activeTab === 'queue' ? 'text-white' : 'text-subtext'}`}>
                 Queue ({queue.length})
               </Text>
             </TouchableOpacity>
           </View>
 
-          <View style={{ width: 28 }} />
+          <View className="w-7" />
         </View>
 
         {activeTab === 'player' ? (
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 20, paddingBottom: 40 }}
             showsVerticalScrollIndicator={false}
           >
             {/* Artwork Card */}
-            <View style={styles.artworkWrapper}>
-              <View style={styles.artworkGlow} />
+            <View className="mt-5 mb-6 relative items-center justify-center">
+              <View
+                className="absolute rounded-full bg-primary opacity-15"
+                style={{ width: ARTWORK_SIZE * 0.9, height: ARTWORK_SIZE * 0.9 }}
+              />
               <CoverArt url={playerTrack.thumbnailUrl} size={ARTWORK_SIZE} borderRadius={20} />
             </View>
 
             {/* Track Info */}
-            <View style={styles.trackDetails}>
-              <Text style={styles.title} numberOfLines={2}>
+            <View className="w-full items-center mb-5">
+              <Text className="text-white text-[22px] font-extrabold text-center mb-1.5" numberOfLines={2}>
                 {playerTrack.title}
               </Text>
-              <Text style={styles.channel} numberOfLines={1}>
+              <Text className="text-subtext text-[15px] font-medium" numberOfLines={1}>
                 {playerTrack.channel || 'Unknown Channel'}
               </Text>
             </View>
 
             {/* Scrubber / Progress Bar */}
-            <View style={styles.progressContainer}>
+            <View className="w-full my-3">
               <TouchableOpacity
                 activeOpacity={1}
-                style={styles.progressBarTrack}
+                className="h-1.5 bg-surfaceContainerHigh rounded-full w-full overflow-hidden"
                 onPress={(e) => {
                   const x = e.nativeEvent.locationX;
-                  const barWidth = width - Theme.spacing.lg * 2;
+                  const barWidth = width - 40;
                   const pct = Math.max(0, Math.min(1, x / barWidth));
                   seekTo(pct);
                 }}
               >
                 <View
-                  style={[styles.progressBarFill, { width: `${Math.min(100, progress * 100)}%` }]}
+                  className="h-full bg-primary"
+                  style={{ width: `${Math.min(100, progress * 100)}%` }}
                 />
               </TouchableOpacity>
-              <View style={styles.timeRow}>
-                <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-                <Text style={styles.timeText}>{formatTime(durationSec)}</Text>
+              <View className="flex-row justify-between mt-2">
+                <Text className="text-subtext text-[12px]">{formatTime(currentTime)}</Text>
+                <Text className="text-subtext text-[12px]">{formatTime(durationSec)}</Text>
               </View>
             </View>
 
             {/* Main Controls */}
-            <View style={styles.controlsRow}>
-              <TouchableOpacity onPress={toggleShuffle} style={styles.iconOptionBtn}>
+            <View className="flex-row items-center justify-between w-full mt-3">
+              <TouchableOpacity onPress={toggleShuffle} className="p-2.5 relative">
                 <Ionicons
                   name="shuffle"
                   size={24}
-                  color={shuffleOn ? Theme.colors.primary : Theme.colors.subtext}
+                  color={shuffleOn ? '#FF5959' : '#A0A0A0'}
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={playPrev} style={styles.iconControlBtn}>
-                <Ionicons name="play-skip-back" size={32} color={Theme.colors.onSurface} />
+              <TouchableOpacity onPress={playPrev} className="p-2.5">
+                <Ionicons name="play-skip-back" size={32} color="#ffffff" />
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={togglePlayPause} style={styles.playPauseCircle}>
+              <TouchableOpacity onPress={togglePlayPause} className="w-[68px] h-[68px] rounded-full bg-primary items-center justify-center">
                 {isAudioLoading ? (
                   <ActivityIndicator size="large" color="#ffffff" />
                 ) : (
@@ -161,38 +163,40 @@ export function FullPlayerModal() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={playNext} style={styles.iconControlBtn}>
-                <Ionicons name="play-skip-forward" size={32} color={Theme.colors.onSurface} />
+              <TouchableOpacity onPress={playNext} className="p-2.5">
+                <Ionicons name="play-skip-forward" size={32} color="#ffffff" />
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={cycleRepeatMode} style={styles.iconOptionBtn}>
+              <TouchableOpacity onPress={cycleRepeatMode} className="p-2.5 relative">
                 <Ionicons
-                  name={repeatMode === 'one' ? 'repeat' : 'repeat'}
+                  name="repeat"
                   size={24}
-                  color={repeatMode !== 'off' ? Theme.colors.primary : Theme.colors.subtext}
+                  color={repeatMode !== 'off' ? '#FF5959' : '#A0A0A0'}
                 />
-                {repeatMode === 'one' && <Text style={styles.repeatBadge}>1</Text>}
+                {repeatMode === 'one' && (
+                  <Text className="absolute top-1.5 right-1 text-[10px] font-bold color-primary">1</Text>
+                )}
               </TouchableOpacity>
             </View>
 
-            {/* Jump -10s / +10s Seek Shortcuts */}
-            <View style={styles.seekShortcutsRow}>
-              <TouchableOpacity style={styles.shortcutBtn} onPress={() => seekBy(-10)}>
-                <Ionicons name="refresh" size={16} color={Theme.colors.subtext} />
-                <Text style={styles.shortcutText}>-10s</Text>
+            {/* Seek Shortcuts */}
+            <View className="flex-row gap-5 mt-6">
+              <TouchableOpacity className="flex-row items-center gap-1 bg-surfaceContainer px-4 py-2 rounded-full" onPress={() => seekBy(-10)}>
+                <Ionicons name="refresh" size={16} color="#A0A0A0" />
+                <Text className="text-subtext text-[12px] font-semibold">-10s</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.shortcutBtn} onPress={() => seekBy(10)}>
-                <Ionicons name="reload" size={16} color={Theme.colors.subtext} />
-                <Text style={styles.shortcutText}>+10s</Text>
+              <TouchableOpacity className="flex-row items-center gap-1 bg-surfaceContainer px-4 py-2 rounded-full" onPress={() => seekBy(10)}>
+                <Ionicons name="reload" size={16} color="#A0A0A0" />
+                <Text className="text-subtext text-[12px] font-semibold">+10s</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
         ) : (
-          <ScrollView contentContainerStyle={styles.queueContent}>
-            <Text style={styles.queueHeading}>Up Next ({queue.length})</Text>
+          <ScrollView contentContainerStyle={{ padding: 20 }}>
+            <Text className="text-white text-[18px] font-bold mb-4">Up Next ({queue.length})</Text>
             {queue.map((t, index) => (
-              <View key={`${t.id || t.youtubeId}-${index}`} style={styles.queueRow}>
-                <View style={{ flex: 1 }}>
+              <View key={`${t.id || t.youtubeId}-${index}`} className="flex-row items-center gap-2">
+                <View className="flex-1">
                   <SongItem
                     track={t}
                     isCurrent={index === queueIndex}
@@ -201,11 +205,8 @@ export function FullPlayerModal() {
                   />
                 </View>
                 {index !== queueIndex && (
-                  <TouchableOpacity
-                    style={styles.removeQueueBtn}
-                    onPress={() => removeFromQueue(index)}
-                  >
-                    <Ionicons name="close-circle-outline" size={22} color={Theme.colors.subtext} />
+                  <TouchableOpacity className="p-2" onPress={() => removeFromQueue(index)}>
+                    <Ionicons name="close-circle-outline" size={22} color="#A0A0A0" />
                   </TouchableOpacity>
                 )}
               </View>
@@ -216,169 +217,3 @@ export function FullPlayerModal() {
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.lg,
-    paddingVertical: Theme.spacing.sm,
-  },
-  headerBtn: {
-    padding: 6,
-  },
-  tabToggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.borderRadius.full,
-    padding: 3,
-  },
-  tabBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: Theme.borderRadius.full,
-  },
-  tabBtnActive: {
-    backgroundColor: Theme.colors.primary,
-  },
-  tabText: {
-    color: Theme.colors.subtext,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    color: '#ffffff',
-  },
-  scrollContent: {
-    alignItems: 'center',
-    paddingHorizontal: Theme.spacing.lg,
-    paddingBottom: 40,
-  },
-  artworkWrapper: {
-    marginTop: Theme.spacing.lg,
-    marginBottom: Theme.spacing.xl,
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  artworkGlow: {
-    position: 'absolute',
-    width: ARTWORK_SIZE * 0.9,
-    height: ARTWORK_SIZE * 0.9,
-    borderRadius: ARTWORK_SIZE,
-    backgroundColor: Theme.colors.primary,
-    opacity: 0.15,
-  },
-  trackDetails: {
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: Theme.spacing.lg,
-  },
-  title: {
-    color: Theme.colors.onSurface,
-    fontSize: 22,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  channel: {
-    color: Theme.colors.subtext,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  progressContainer: {
-    width: '100%',
-    marginVertical: Theme.spacing.md,
-  },
-  progressBarTrack: {
-    height: 6,
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    borderRadius: 3,
-    width: '100%',
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: Theme.colors.primary,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  timeText: {
-    color: Theme.colors.subtext,
-    fontSize: 12,
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: Theme.spacing.md,
-  },
-  iconOptionBtn: {
-    padding: 10,
-    position: 'relative',
-  },
-  repeatBadge: {
-    position: 'absolute',
-    top: 6,
-    right: 4,
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: Theme.colors.primary,
-  },
-  iconControlBtn: {
-    padding: 10,
-  },
-  playPauseCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: Theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  seekShortcutsRow: {
-    flexDirection: 'row',
-    gap: 20,
-    marginTop: Theme.spacing.xl,
-  },
-  shortcutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Theme.colors.surfaceContainer,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: Theme.borderRadius.full,
-  },
-  shortcutText: {
-    color: Theme.colors.subtext,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  queueContent: {
-    padding: Theme.spacing.lg,
-  },
-  queueHeading: {
-    color: Theme.colors.onSurface,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: Theme.spacing.md,
-  },
-  queueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  removeQueueBtn: {
-    padding: 8,
-  },
-});

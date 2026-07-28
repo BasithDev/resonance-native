@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Theme } from '../constants/theme';
 import * as api from '../services/api';
 
 interface AddToPlaylistModalProps {
@@ -50,34 +49,34 @@ export function AddToPlaylistModal({ visible, song, onClose, onAdded }: AddToPla
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.dialog}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Add to Playlist</Text>
+      <View className="flex-1 bg-black/70 justify-end">
+        <View className="bg-surfaceContainerHigh rounded-t-2xl p-5 max-h-[60%]">
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-white text-[18px] font-bold">Add to Playlist</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color={Theme.colors.onSurface} />
+              <Ionicons name="close" size={24} color="#ffffff" />
             </TouchableOpacity>
           </View>
 
           {loading ? (
-            <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginVertical: 20 }} />
+            <ActivityIndicator size="large" color="#FF5959" className="my-5" />
           ) : playlists.length === 0 ? (
-            <Text style={styles.emptyText}>No playlists found. Create one first!</Text>
+            <Text className="text-subtext text-center my-5">No playlists found. Create one first!</Text>
           ) : (
             <FlatList
               data={playlists}
               keyExtractor={(item) => item.id}
-              style={{ maxHeight: 300 }}
+              className="max-h-[300px]"
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.playlistRow}
+                  className="flex-row items-center py-3.5 px-2 border-b border-border"
                   onPress={() => handleAdd(item.id)}
                   disabled={addingId === item.id}
                 >
-                  <Ionicons name="musical-notes" size={20} color={Theme.colors.primary} />
-                  <Text style={styles.playlistName}>{item.name}</Text>
+                  <Ionicons name="musical-notes" size={20} color="#FF5959" />
+                  <Text className="text-white text-[16px] font-semibold ml-3 flex-1">{item.name}</Text>
                   {addingId === item.id && (
-                    <ActivityIndicator size="small" color={Theme.colors.primary} />
+                    <ActivityIndicator size="small" color="#FF5959" />
                   )}
                 </TouchableOpacity>
               )}
@@ -88,49 +87,3 @@ export function AddToPlaylistModal({ visible, song, onClose, onAdded }: AddToPla
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  dialog: {
-    backgroundColor: Theme.colors.surfaceContainerHigh,
-    borderTopLeftRadius: Theme.borderRadius.lg,
-    borderTopRightRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.lg,
-    maxHeight: '60%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Theme.spacing.md,
-  },
-  title: {
-    color: Theme.colors.onSurface,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  emptyText: {
-    color: Theme.colors.subtext,
-    textAlign: 'center',
-    marginVertical: 20,
-  },
-  playlistRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  playlistName: {
-    color: Theme.colors.onSurface,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 12,
-    flex: 1,
-  },
-});
