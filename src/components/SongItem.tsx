@@ -37,6 +37,10 @@ export function SongItem({
           ? 'bg-surfaceContainerHigh border-primary/40'
           : 'bg-surfaceContainer border-border'
       }`}
+      style={{
+        backgroundColor: isCurrent ? '#2A2A2A' : '#242424',
+        borderColor: isCurrent ? 'rgba(255, 89, 89, 0.4)' : '#2C2C2C',
+      }}
       onPress={onPress}
       activeOpacity={0.75}
     >
@@ -48,16 +52,24 @@ export function SongItem({
           className={`font-bold text-[15px] mb-0.5 tracking-tight ${
             isCurrent ? 'text-primary' : 'text-white'
           }`}
+          style={{ color: isCurrent ? '#FF5959' : '#ffffff' }}
         >
           {track.title}
         </Text>
-        <Text numberOfLines={1} className="text-subtext text-[13px] font-medium">
+        <Text
+          numberOfLines={1}
+          className="text-subtext text-[13px] font-medium"
+          style={{ color: '#A0A0A0' }}
+        >
           {track.channel || 'Unknown Artist'} • {formatDuration(track.durationSec)}
         </Text>
       </View>
 
       {isCurrent && (
-        <View className="px-2 py-1 rounded-lg bg-primary/15 mr-1">
+        <View
+          className="px-2 py-1 rounded-lg bg-primary/15 mr-1"
+          style={{ backgroundColor: 'rgba(255, 89, 89, 0.15)' }}
+        >
           <Ionicons
             name={isPlaying ? 'stats-chart' : 'pause'}
             size={16}
@@ -73,6 +85,7 @@ export function SongItem({
             onAddPress();
           }}
           className="w-8 h-8 rounded-full bg-primary items-center justify-center mr-1"
+          style={{ backgroundColor: '#FF5959' }}
           disabled={isAddLoading}
           activeOpacity={0.8}
         >
