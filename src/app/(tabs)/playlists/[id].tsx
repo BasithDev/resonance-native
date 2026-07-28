@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,10 @@ import {
   TextInput,
   Alert,
   Image,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudio, Track } from '../../../context/AudioContext';
 import { SongItem } from '../../../components/SongItem';
@@ -33,6 +34,22 @@ export default function PlaylistDetailScreen() {
     isDeletingRef.current = false;
     if (id) loadDetails();
   }, [id]);
+
+  function handleGoBack() {
+    router.replace('/(tabs)/playlists/index' as any);
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        handleGoBack();
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [])
+  );
 
   async function loadDetails() {
     if (isDeletingRef.current) return;
@@ -67,14 +84,6 @@ export default function PlaylistDetailScreen() {
       Alert.alert('Error', 'Failed to load playlist details.');
     } finally {
       setLoading(false);
-    }
-  }
-
-  function handleGoBack() {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/playlists/index' as any);
     }
   }
 
