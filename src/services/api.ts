@@ -76,44 +76,47 @@ async function discoverWorkingServerUrl(): Promise<string> {
   }
 }
 
-async function request(method: string, path: string, body?: any) {
+async function request(method: string, path: string, body?: any, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const opts: RequestInit = {
     method,
     headers: { 'Content-Type': 'application/json' },
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
 
-  // 1. Try currentBaseUrl first with 3-second timeout
+  // 1. Try currentBaseUrl first
   try {
-    const url = `${currentBaseUrl}${path}`;
-    const res = await fetchWithTimeout(url, opts, 3000);
-    if (!res.ok) {
-      if (res.status === 502 || res.status === 503 || res.status === 504) {
-        throw new Error(`Gateway Error (${res.status})`);
-      }
-      const err = await res.json().catch(() => ({}));
-      const message = err.message || `Request failed (${res.status})`;
-      throw Object.assign(new Error(message), { status: res.status });
-    }
-    if (res.status === 204) return null;
-    return await res.json();
+    const res = await fetchWithTimeout(`${currentBaseUrl}${path}`, opts, timeoutMs);
+    return await parseResponse(res);
   } catch (err: any) {
-    // If it's a standard HTTP application error (like 400/401/404/500), don't retry candidates
-    if (err.status && err.status !== 502 && err.status !== 503 && err.status !== 504) {
-      throw err;
-    }
+    // The backend answered (including its own 502s, e.g. a YouTube resolve failure): don't retry candidates
+    if (err.status) throw err;
 
     // 2. Network error / Timeout / Gateway error: Trigger fast parallel auto-discovery (< 1.5s)
     const workingUrl = await discoverWorkingServerUrl();
-    const retryRes = await fetchWithTimeout(`${workingUrl}${path}`, opts, 4000);
-    if (!retryRes.ok) throw new Error(`Request failed (${retryRes.status})`);
-    if (retryRes.status === 204) return null;
-    return await retryRes.json();
+    const retryRes = await fetchWithTimeout(`${workingUrl}${path}`, opts, timeoutMs);
+    return await parseResponse(retryRes);
   }
 }
 
-const get = (path: string) => request('GET', path);
-const post = (path: string, body?: any) => request('POST', path, body);
+// Backend errors are shaped { error: { message } }. A 502/503/504 without that
+// shape came from a proxy/tunnel, meaning the backend itself was not reached.
+async function parseResponse(res: Response) {
+  if (res.ok) return res.status === 204 ? null : await res.json();
+  const body = await res.json().catch(() => null);
+  const backendMessage = body?.error?.message;
+  if (!backendMessage && (res.status === 502 || res.status === 503 || res.status === 504)) {
+    throw new Error(`Gateway Error (${res.status})`);
+  }
+  const message = backendMessage || body?.message || `Request failed (${res.status})`;
+  throw Object.assign(new Error(message), { status: res.status });
+}
+
+// Endpoints backed by yt-dlp take several seconds (playlists and batches longer)
+const DEFAULT_TIMEOUT_MS = 10000;
+const YOUTUBE_TIMEOUT_MS = 120000;
+
+const get = (path: string, timeoutMs?: number) => request('GET', path, undefined, timeoutMs);
+const post = (path: string, body?: any, timeoutMs?: number) => request('POST', path, body, timeoutMs);
 const del = (path: string) => request('DELETE', path);
 const patch = (path: string, body?: any) => request('PATCH', path, body);
 
@@ -124,12 +127,12 @@ export function getStreamUrl(songId: string) {
 }
 
 // ---------- Preview ----------
-export const previewVideo = (url: string) => post('/preview', { url });
-export const previewPlaylist = (url: string) => post('/preview/playlist', { url });
+export const previewVideo = (url: string) => post('/preview', { url }, YOUTUBE_TIMEOUT_MS);
+export const previewPlaylist = (url: string) => post('/preview/playlist', { url }, YOUTUBE_TIMEOUT_MS);
 
 // ---------- Import ----------
 export const batchImportSongs = (songs: any[], playlistId?: string) =>
-  post('/songs/batch', { songs, playlistId });
+  post('/songs/batch', { songs, playlistId }, YOUTUBE_TIMEOUT_MS);
 
 // ---------- Songs ----------
 export const getSongs = () => get('/songs');
@@ -147,7 +150,7 @@ export const removeSongFromPlaylist = (playlistId: string, songId: string) =>
   del(`/playlists/${playlistId}/songs/${songId}`);
 
 // ---------- Search ----------
-export const searchYouTube = (q: string) => get(`/search?q=${encodeURIComponent(q)}`);
+export const searchYouTube = (q: string) => get(`/search?q=${encodeURIComponent(q)}`, YOUTUBE_TIMEOUT_MS);
 export const getSuperShuffle = () => get('/shuffle/super');
 
 // ---------- Portability ----------

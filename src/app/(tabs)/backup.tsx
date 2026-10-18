@@ -187,9 +187,19 @@ export default function BackupScreen() {
         });
       }
 
+      let savedSongs: any[] = [];
       if (songsToImport.length > 0) {
         setStatusMsg(`Importing ${songsToImport.length} track(s)...`);
-        await api.batchImportSongs(songsToImport);
+        const res = await api.batchImportSongs(songsToImport);
+        savedSongs = res?.songs || [];
+      }
+
+      // Songs that already exist keep their current id, so map the backup's
+      // song references (id or youtubeId) to ids in this library.
+      const idMap = new Map<string, string>();
+      for (const s of savedSongs) idMap.set(s.youtubeId, s.id);
+      for (const s of songsToImport) {
+        if (s.id && idMap.has(s.youtubeId)) idMap.set(s.id, idMap.get(s.youtubeId)!);
       }
 
       if (playlistsToCreate.length > 0) {
@@ -198,9 +208,12 @@ export default function BackupScreen() {
           if (pl.name) {
             try {
               const created = await api.createPlaylist(pl.name);
-              if (created?.id && Array.isArray(pl.songIds)) {
-                for (const songId of pl.songIds) {
-                  await api.addSongToPlaylist(created.id, songId).catch(() => {});
+              // App backups use `songIds`; backend /api/export uses `songs`
+              const refs = pl.songIds || pl.songs || [];
+              if (created?.id && Array.isArray(refs)) {
+                for (const ref of refs) {
+                  const songId = idMap.get(typeof ref === 'string' ? ref : ref?.id || ref?.youtubeId);
+                  if (songId) await api.addSongToPlaylist(created.id, songId).catch(() => {});
                 }
               }
             } catch (err) {}

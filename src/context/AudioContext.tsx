@@ -123,6 +123,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // The player's status listener is attached once per track, so calling
+  // handleAudioEnded directly would use the queue/repeatMode from that moment
+  // (e.g. the queue from before playTrack set the new one). Go through a ref
+  // that always points at the latest render's handler.
+  const handleAudioEndedRef = useRef(handleAudioEnded);
+  handleAudioEndedRef.current = handleAudioEnded;
+
   async function loadAndPlayTrack(track: Track) {
     setPlayerTrack(track);
     setIsAudioLoading(true);
@@ -161,7 +168,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (status.didJustFinish) {
-          handleAudioEnded();
+          handleAudioEndedRef.current();
         }
       });
 

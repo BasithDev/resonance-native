@@ -46,7 +46,7 @@ export default function ImportScreen() {
     setImporting(true);
     try {
       const songsToImport =
-        previewData.type === 'playlist' ? previewData.songs || [] : [previewData];
+        previewData.type === 'playlist' ? previewData.tracks || [] : [previewData];
       await api.batchImportSongs(songsToImport);
       Alert.alert('Success!', `Imported ${songsToImport.length} track(s) to your library.`);
       setPreviewData(null);
@@ -136,12 +136,12 @@ export default function ImportScreen() {
                 <Ionicons name="albums-outline" size={32} color="#FF5959" />
                 <Text className="text-white text-[15px] font-bold mt-2">{previewData.title || 'YouTube Playlist'}</Text>
                 <Text className="text-subtext text-[13px] mt-0.5">
-                  {previewData.songs?.length || 0} tracks extracted
+                  {previewData.tracks?.length || 0} tracks extracted
                 </Text>
 
-                {previewData.songs && previewData.songs.length > 0 && (
+                {previewData.tracks && previewData.tracks.length > 0 && (
                   <ScrollView style={{ maxHeight: 220, width: '100%', marginTop: 12 }}>
-                    {previewData.songs.map((s: any, idx: number) => (
+                    {previewData.tracks.map((s: any, idx: number) => (
                       <View key={idx} className="flex-row items-center gap-2.5 py-1.5">
                         <CoverArt url={s.thumbnailUrl} size={36} borderRadius={6} />
                         <Text className="text-white text-[13px] flex-1" numberOfLines={1}>
