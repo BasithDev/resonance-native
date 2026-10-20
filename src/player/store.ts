@@ -20,8 +20,10 @@ import { engine, type EngineStatus, type PlayerEngine } from './engine';
 import * as Q from './queue';
 import { useSleepTimer } from './sleepTimer';
 import type { QueueState } from './queue';
+import { updateWidget, type NowPlaying } from '../widget/update';
 
 export type { QueueState, RepeatMode } from './queue';
+export type { NowPlaying } from '../widget/update';
 
 export const STREAM_URL_TTL_MS = 4 * 60 * 60 * 1000;
 /** `previous()` restarts the song instead once it has played this long. */
@@ -61,6 +63,8 @@ export type PlayerDeps = {
   loadSuperShuffle?: () => Promise<Song[]>;
   /** Receives each chunk of actual playing time (default: the local listens table). */
   onListen?: (youtubeId: string, durationSec: number, playedAt: number, playStart: boolean) => void;
+  /** Called when the current song or the play state changes (the home-screen widget). */
+  onNowPlaying?: (s: NowPlaying) => void;
 };
 
 const IDLE: EngineStatus = { playing: false, buffering: false, positionSec: 0, durationSec: 0, ended: false, error: null };
@@ -80,6 +84,21 @@ export function artworkUri(s: Song): string | null {
 
 export const selectCurrent = (s: PlayerState): Song | null => (s.queue ? (s.queue.items[s.queue.index] ?? null) : null);
 
+function nowPlaying(s: PlayerState): NowPlaying {
+  const song = selectCurrent(s);
+  const { playing, buffering, error } = s.status;
+  return {
+    title: song?.title ?? null,
+    artist: song?.channel ?? null,
+    artworkUri: song ? artworkUri(song) : null,
+    // Same rule as togglePlay: buffering counts as playing.
+    playing: !!song && (playing || buffering) && !error,
+  };
+}
+
+const sameNowPlaying = (a: NowPlaying, b: NowPlaying) =>
+  a.title === b.title && a.artist === b.artist && a.artworkUri === b.artworkUri && a.playing === b.playing;
+
 const isLocal = (s: Song) => s.download === 'done' && !!s.filePath;
 
 export function createPlayerStore(deps: PlayerDeps) {
@@ -95,7 +114,7 @@ export function createPlayerStore(deps: PlayerDeps) {
   let failures = 0; // songs that failed in a row (stops a skip loop)
   let lastPosition = 0;
 
-  return create<PlayerState>()((set, get) => {
+  const store = create<PlayerState>()((set, get) => {
     async function streamUrl(youtubeId: string, fresh = false): Promise<string> {
       const hit = urls.get(youtubeId);
       if (!fresh && hit && now() - hit.at < STREAM_URL_TTL_MS) return hit.url;
@@ -345,10 +364,26 @@ export function createPlayerStore(deps: PlayerDeps) {
       },
     };
   });
+
+  const onNowPlaying = deps.onNowPlaying;
+  if (onNowPlaying) {
+    // Status ticks every 500 ms; only real track / play-state changes go out.
+    // The first report (idle) also clears a widget left showing a song by an earlier process.
+    let reported = nowPlaying(store.getState());
+    onNowPlaying(reported);
+    store.subscribe((state) => {
+      const np = nowPlaying(state);
+      if (sameNowPlaying(reported, np)) return;
+      reported = np;
+      onNowPlaying(np);
+    });
+  }
+  return store;
 }
 
 export const usePlayer = createPlayerStore({
   engine,
   resolveStream,
   isOnline: () => getConnectivity().online,
+  onNowPlaying: (s) => void updateWidget(s),
 });

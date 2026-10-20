@@ -32,7 +32,25 @@
         }
       ],
       "expo-sqlite",
-      "./modules/ytdlp/app.plugin.js"
+      "./modules/ytdlp/app.plugin.js",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "NowPlaying",
+              "label": "Now playing",
+              "description": "What's playing, with play/pause and next",
+              "minWidth": "250dp",
+              "minHeight": "70dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 1,
+              "resizeMode": "horizontal",
+              "previewImage": "./assets/images/widget-preview.png"
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
