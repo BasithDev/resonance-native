@@ -2,6 +2,7 @@ import { randomUUID } from 'expo-crypto';
 
 import { runMigrations } from '../db/migrations';
 import type { Db } from '../db/types';
+import type { Deletion, SyncPlaylist, SyncSong } from '../sync/types';
 import type { DownloadState, Playlist, Song, Tombstone, YtTrack } from './types';
 
 const LIKED_ID = 'liked';
@@ -296,4 +297,121 @@ export async function listTombstones(db: Db): Promise<Tombstone[]> {
     'SELECT kind, key, deleted_at FROM tombstones ORDER BY deleted_at, rowid',
   );
   return rows.map((r) => ({ kind: r.kind, key: r.key, deletedAt: r.deleted_at }));
+}
+
+// ---- sync support ----
+
+export type SyncExport = {
+  songs: SyncSong[];
+  playlists: SyncPlaylist[];
+  deletions: Deletion[];
+};
+
+export async function exportForSync(db: Db): Promise<SyncExport> {
+  const songs = (await listSongs(db)).map((s) => ({
+    youtubeId: s.youtubeId,
+    title: s.title,
+    channel: s.channel,
+    durationSec: s.durationSec,
+    thumbnailUrl: s.thumbnailUrl,
+    addedAt: s.addedAt,
+  }));
+  const rows = await db.all<{ id: string; name: string; kind: 'user' | 'liked'; updated_at: number }>(
+    'SELECT id, name, kind, updated_at FROM playlists ORDER BY created_at, rowid',
+  );
+  const members = await db.all<{ playlist_id: string; youtube_id: string }>(
+    'SELECT playlist_id, youtube_id FROM playlist_songs ORDER BY playlist_id, position',
+  );
+  const byPlaylist = new Map<string, string[]>();
+  for (const m of members) {
+    const list = byPlaylist.get(m.playlist_id) ?? [];
+    list.push(m.youtube_id);
+    byPlaylist.set(m.playlist_id, list);
+  }
+  const playlists = rows.map((r) => ({
+    id: r.kind === 'liked' ? LIKED_ID : r.id,
+    name: r.name,
+    kind: r.kind,
+    updatedAt: r.updated_at,
+    songs: byPlaylist.get(r.id) ?? [],
+  }));
+  const deletions = await listTombstones(db);
+  return { songs, playlists, deletions };
+}
+
+/** Drops tombstones the server has acknowledged; newer ones (made during the sync) stay. */
+export async function clearTombstones(db: Db, upTo: number): Promise<void> {
+  await db.run('DELETE FROM tombstones WHERE deleted_at <= ?', [upTo]);
+}
+
+/**
+ * Makes songs/playlists/memberships equal the server's library in one tx, keeping local
+ * download columns of surviving songs. Writes no tombstones.
+ */
+export async function replaceLibrary(
+  db: Db,
+  songs: SyncSong[],
+  playlists: SyncPlaylist[],
+): Promise<{ removedSongIds: string[] }> {
+  const keep = new Set(songs.map((s) => s.youtubeId));
+  const removedSongIds: string[] = [];
+  await db.tx(async () => {
+    const local = await db.all<{ youtube_id: string }>('SELECT youtube_id FROM songs');
+    for (const { youtube_id } of local) {
+      if (!keep.has(youtube_id)) {
+        removedSongIds.push(youtube_id);
+        await db.run('DELETE FROM songs WHERE youtube_id = ?', [youtube_id]);
+      }
+    }
+    for (const s of songs) {
+      await db.run(
+        `INSERT INTO songs (youtube_id, title, channel, duration_sec, thumbnail_url, added_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(youtube_id) DO UPDATE SET
+           title = excluded.title, channel = excluded.channel,
+           duration_sec = excluded.duration_sec, thumbnail_url = excluded.thumbnail_url,
+           added_at = excluded.added_at`,
+        [s.youtubeId, s.title, s.channel, s.durationSec, s.thumbnailUrl, s.addedAt],
+      );
+    }
+
+    const keepPlaylists = new Set(playlists.map((p) => p.id));
+    const localPlaylists = await db.all<{ id: string; kind: string }>(
+      'SELECT id, kind FROM playlists',
+    );
+    for (const p of localPlaylists) {
+      if (p.kind !== 'liked' && !keepPlaylists.has(p.id)) {
+        await db.run('DELETE FROM playlists WHERE id = ?', [p.id]);
+      }
+    }
+    await db.run('DELETE FROM playlist_songs');
+    for (const p of playlists) {
+      // The server's 'liked' id is the local Liked playlist, which already has that id.
+      await db.run(
+        `INSERT INTO playlists (id, name, kind, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at`,
+        [p.id, p.name, p.id === LIKED_ID ? 'liked' : p.kind, p.updatedAt, p.updatedAt],
+      );
+      let pos = 0;
+      for (const yid of p.songs) {
+        if (!keep.has(yid)) continue;
+        await db.run(
+          'INSERT OR IGNORE INTO playlist_songs (playlist_id, youtube_id, position, added_at) VALUES (?, ?, ?, ?)',
+          [p.id, yid, pos++, p.updatedAt],
+        );
+      }
+    }
+  });
+  return { removedSongIds };
+}
+
+export async function getLastSyncAt(db: Db): Promise<number | null> {
+  const r = await db.first<{ value: string | null }>("SELECT value FROM kv WHERE key = 'lastSyncAt'");
+  if (!r || r.value === null) return null;
+  const n = Number(r.value);
+  return Number.isFinite(n) ? n : null;
+}
+
+export async function setLastSyncAt(db: Db, t: number): Promise<void> {
+  await db.run("INSERT OR REPLACE INTO kv (key, value) VALUES ('lastSyncAt', ?)", [String(t)]);
 }
