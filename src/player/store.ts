@@ -55,7 +55,7 @@ export type PlayerDeps = {
   isOnline: () => boolean;
   now?: () => number;
   /** Receives each chunk of actual playing time (default: the local listens table). */
-  onListen?: (youtubeId: string, durationSec: number, playedAt: number) => void;
+  onListen?: (youtubeId: string, durationSec: number, playedAt: number, playStart: boolean) => void;
 };
 
 const IDLE: EngineStatus = { playing: false, buffering: false, positionSec: 0, durationSec: 0, ended: false, error: null };
@@ -221,7 +221,7 @@ export function createPlayerStore(deps: PlayerDeps) {
     deps.engine.onStatus((s) => {
       const prev = get().status;
       set({ status: s });
-      tracker.tick(source?.youtubeId ?? null, s.playing && !s.ended);
+      tracker.tick(source?.youtubeId ?? null, s.playing && !s.ended, s.ended);
       if (!source) return; // a load is in flight; these events are about the old song
       if (s.playing) failures = 0;
       if (!s.ended && s.positionSec > 0) lastPosition = s.positionSec;

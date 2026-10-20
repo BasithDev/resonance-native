@@ -47,7 +47,8 @@ export const MIGRATIONS: string[] = [
     youtube_id TEXT,
     duration_sec INTEGER,
     played_at INTEGER,
-    synced INTEGER DEFAULT 0
+    synced INTEGER DEFAULT 0,
+    play_start INTEGER NOT NULL DEFAULT 0
   );
   CREATE INDEX listens_played_at ON listens(played_at);
   `,

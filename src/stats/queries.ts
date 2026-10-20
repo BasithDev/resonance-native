@@ -52,15 +52,12 @@ export async function getStats(db: Db, now: number): Promise<Stats> {
   );
 
   // Songs only exist while in the library, so a deleted song drops out of the join.
-  // A "play" is the listened time divided by the song's length (at least one).
+  // A play is one listen session; its first chunk carries play_start = 1.
   const top = await db.all<{ youtube_id: string; listened: number; plays: number }>(
-    `SELECT l.youtube_id, SUM(l.duration_sec) AS listened,
-            CASE WHEN s.duration_sec > 0
-                 THEN MAX(1, CAST(ROUND(1.0 * SUM(l.duration_sec) / s.duration_sec) AS INTEGER))
-                 ELSE 1 END AS plays
+    `SELECT l.youtube_id, SUM(l.duration_sec) AS listened, SUM(l.play_start) AS plays
      FROM listens l JOIN songs s ON s.youtube_id = l.youtube_id
      GROUP BY l.youtube_id
-     ORDER BY plays DESC, listened DESC
+     ORDER BY plays DESC, listened DESC, l.youtube_id
      LIMIT 5`,
   );
 
@@ -72,7 +69,10 @@ export async function getStats(db: Db, now: number): Promise<Stats> {
     monthSec: row?.month ?? 0,
     yearSec: row?.year ?? 0,
     lifetimeSec: row?.life ?? 0,
-    mostPlayed: top.map((t) => ({ ...byId.get(t.youtube_id)!, playCount: t.plays, listenedSec: t.listened })),
+    mostPlayed: top.flatMap((t) => {
+      const song = byId.get(t.youtube_id);
+      return song ? [{ ...song, playCount: t.plays, listenedSec: t.listened }] : [];
+    }),
     songOfTheDay: pickSongOfTheDay(songs, now),
   };
 }

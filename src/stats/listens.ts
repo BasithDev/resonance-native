@@ -2,12 +2,22 @@ import type { Db } from '../db/types';
 
 export type Listen = { id: number; youtubeId: string; durationSec: number; playedAt: number };
 
-/** Records `durationSec` of playback that ended at `playedAt` (epoch ms). */
-export async function log(db: Db, youtubeId: string, durationSec: number, playedAt: number): Promise<void> {
-  await db.run('INSERT INTO listens (youtube_id, duration_sec, played_at) VALUES (?, ?, ?)', [
+/**
+ * Records `durationSec` of playback that ended at `playedAt` (epoch ms).
+ * `playStart` marks the first chunk of a play (one load/replay of a track): it is what counts as a play.
+ */
+export async function log(
+  db: Db,
+  youtubeId: string,
+  durationSec: number,
+  playedAt: number,
+  playStart = false,
+): Promise<void> {
+  await db.run('INSERT INTO listens (youtube_id, duration_sec, played_at, play_start) VALUES (?, ?, ?, ?)', [
     youtubeId,
     durationSec,
     playedAt,
+    playStart ? 1 : 0,
   ]);
 }
 
