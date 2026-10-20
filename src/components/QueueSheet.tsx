@@ -15,18 +15,9 @@ import { useConnectivity } from '@/net/connectivity';
 import { artworkUri, isPlayable, selectCurrent, usePlayer } from '@/player/store';
 import { colors, font, radii } from '@/theme/tokens';
 
-const ROW_H = 56;
-type Drag = { from: number; to: number; dy: number };
-const IDLE: Drag = { from: -1, to: -1, dy: 0 };
+import { type Drag, IDLE_DRAG as IDLE, reorderPan, useDragSlotStyle } from './reorder';
 
-/** Where row `pos` sits while row `d.from` is being dragged to `d.to`. */
-function shifted(pos: number, d: Drag): number {
-  'worklet';
-  if (d.from < 0) return pos;
-  if (d.from < pos && pos <= d.to) return pos - 1;
-  if (d.to <= pos && pos < d.from) return pos + 1;
-  return pos;
-}
+const ROW_H = 56;
 
 function QueueRow({
   song, pos, count, playable, drag, scroll, onMove, onRemove,
@@ -40,29 +31,9 @@ function QueueRow({
   onMove: (from: number, to: number) => void;
   onRemove: () => void;
 }) {
-  const style = useAnimatedStyle(() => {
-    const d = drag.get();
-    if (d.from === pos) return { top: pos * ROW_H + d.dy, zIndex: 10, transform: [{ scale: 1.02 }] };
-    return { top: withTiming(shifted(pos, d) * ROW_H, { duration: 150 }), zIndex: 0, transform: [{ scale: 1 }] };
-  });
-
-  const handle = Gesture.Pan()
-    .blocksExternalGesture(scroll)
-    .onStart(() => {
-      drag.set({ from: pos, to: pos, dy: 0 });
-    })
-    .onUpdate((e) => {
-      const to = Math.max(0, Math.min(count - 1, Math.round(pos + e.translationY / ROW_H)));
-      drag.set({ from: pos, to, dy: e.translationY });
-    })
-    .onEnd(() => {
-      const { to } = drag.get();
-      if (to === pos) drag.set(IDLE);
-      else scheduleOnRN(onMove, pos, to); // the sheet resets `drag` once the queue re-renders
-    })
-    .onFinalize((_e, success) => {
-      if (!success) drag.set(IDLE);
-    });
+  const style = useDragSlotStyle(drag, pos, ROW_H);
+  // The sheet resets `drag` once the queue re-renders.
+  const handle = reorderPan({ pos, count, rowHeight: ROW_H, drag, scroll, onMove });
 
   return (
     <Animated.View style={[styles.rowSlot, style]}>
@@ -106,6 +77,7 @@ export function QueueSheet({ open, onClose }: { open: boolean; onClose: () => vo
   const current = usePlayer(selectCurrent);
   const moveInQueue = usePlayer((s) => s.moveInQueue);
   const removeFromQueue = usePlayer((s) => s.removeFromQueue);
+  const clearUpNext = usePlayer((s) => s.clearUpNext);
   const { online } = useConnectivity();
   const [mounted, setMounted] = useState(open);
   if (open && !mounted) setMounted(true); // stays mounted until the close animation ends
@@ -174,7 +146,14 @@ export function QueueSheet({ open, onClose }: { open: boolean; onClose: () => vo
                 </View>
               </View>
             ) : null}
-            <Text style={styles.header}>Up next</Text>
+            <View style={styles.headerRow}>
+              <Text style={styles.header}>Up next</Text>
+              {upNext.length > 0 ? (
+                <Pressable onPress={clearUpNext} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear up next">
+                  <Text style={styles.clear}>Clear</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         </GestureDetector>
         <GestureDetector gesture={scroll}>
@@ -215,7 +194,9 @@ const styles = StyleSheet.create({
   grab: { width: 36, height: 4, borderRadius: 4, backgroundColor: colors.hairline, alignSelf: 'center', marginTop: 10, marginBottom: 12 },
   nowRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 12 },
   nowArt: { width: 46, height: 46, borderRadius: 10, backgroundColor: colors.s4 },
-  header: { color: colors.text, fontFamily: font.bold, fontSize: 14, paddingHorizontal: 16, paddingBottom: 6 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 6 },
+  header: { color: colors.text, fontFamily: font.bold, fontSize: 14 },
+  clear: { color: colors.primary, fontFamily: font.semibold, fontSize: 13 },
   empty: { color: colors.muted, fontFamily: font.regular, fontSize: 13, paddingHorizontal: 16, paddingTop: 8 },
   rowSlot: { position: 'absolute', left: 0, right: 0, height: ROW_H },
   row: { height: ROW_H, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingRight: 6, backgroundColor: colors.s2 },

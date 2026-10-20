@@ -85,6 +85,14 @@ describe('library repo', () => {
     expect((await listPlaylists(db))[0].id).toBe('liked');
   });
 
+  it('renamePlaylist renames user playlists; the Liked playlist cannot be renamed', async () => {
+    await createPlaylist(db, 'P', () => 'p1');
+    await renamePlaylist(db, 'p1', 'Q');
+    expect((await listPlaylists(db)).find((x) => x.id === 'p1')?.name).toBe('Q');
+    await expect(renamePlaylist(db, 'liked', 'Nope')).rejects.toThrow('The Liked playlist cannot be renamed');
+    expect((await listPlaylists(db))[0].name).toBe('Liked');
+  });
+
   it('removeFromPlaylist writes membership tombstone key "<playlistId>:<youtubeId>"', async () => {
     await addSong(db, track('a'));
     await createPlaylist(db, 'P', () => 'p1');
