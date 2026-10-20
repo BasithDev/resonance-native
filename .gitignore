@@ -43,7 +43,5 @@ example
 /android
 
 # Resonance
-android/
-ios/
 .superpowers/
 *.keystore

@@ -1,0 +1,27 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.ytdlp'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.ytdlp"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  // yt-dlp + bundled python for Android. Audio-only downloads, so no ffmpeg/aria2c modules.
+  implementation "io.github.junkfood02.youtubedl-android:library:0.18.1"
+}
