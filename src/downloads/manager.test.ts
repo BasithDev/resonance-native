@@ -359,6 +359,21 @@ describe('download manager', () => {
     expect(t.player.onSongUpdated).toHaveBeenCalledWith(expect.objectContaining({ youtubeId: 'a', download: 'none' }));
   });
 
+  it('clearAll removes every download, queued ones included, and keeps the songs', async () => {
+    const t = await setup();
+    for (const id of ['a', 'b', 'c', 'd']) await t.add(id);
+    await setDownload(t.db, 'a', { download: 'done', filePath: '/docs/audio/a.webm', artPath: null, sizeBytes: 5 });
+    await setDownload(t.db, 'b', { download: 'failed', downloadError: 'x' });
+    await setDownload(t.db, 'c', { download: 'queued' });
+    t.files.add('audio/a.webm');
+
+    await t.m.clearAll();
+
+    expect(t.files.size).toBe(0);
+    for (const id of ['a', 'b', 'c', 'd']) expect(await t.state(id)).toBe('none');
+    expect(await getSong(t.db, 'a')).not.toBeNull();
+  });
+
   it('onLiked enqueues only when autoDownloadLiked is on', async () => {
     const on = await setup();
     await on.add('a');

@@ -11,6 +11,15 @@ export const colors = {
   primaryStrong: '#ff5959',
   mint: '#5adcb2',
   onMint: '#003829',
+  white: '#fff',
+  /** Dark red the mini-player gradient starts from. */
+  miniPlayerGlow: '#5a2a2a',
+  /** Dimmed backdrop behind sheets. */
+  scrim: '#000a',
+  /** Faint light line / grab handle on dark surfaces. */
+  hairline: '#fff3',
+  /** Empty part of a thin progress line. */
+  trackLine: '#ffffff22',
 } as const;
 
 export const radii = { sm: 8, md: 12, lg: 16, xl: 22, pill: 999 } as const;

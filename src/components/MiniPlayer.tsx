@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: PAD,
     overflow: 'hidden',
     elevation: 10,
-    experimental_backgroundImage: `linear-gradient(90deg, #5a2a2a, ${colors.s3})`,
+    experimental_backgroundImage: `linear-gradient(90deg, ${colors.miniPlayerGlow}, ${colors.s3})`,
     backgroundColor: colors.s3,
   },
   art: { width: ART, height: ART, borderRadius: 9, backgroundColor: colors.s4 },
@@ -120,6 +120,6 @@ const styles = StyleSheet.create({
   bars: { flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 12 },
   bar: { width: 3, borderRadius: 2, backgroundColor: colors.primary },
   button: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  track: { position: 'absolute', left: 14, right: 14, bottom: 0, height: 2, backgroundColor: '#ffffff22' },
+  track: { position: 'absolute', left: 14, right: 14, bottom: 0, height: 2, backgroundColor: colors.trackLine },
   progress: { height: 2, backgroundColor: colors.primary },
 });

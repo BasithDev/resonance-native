@@ -201,7 +201,7 @@ export function QueueSheet({ open, onClose }: { open: boolean; onClose: () => vo
 }
 
 const styles = StyleSheet.create({
-  scrim: { backgroundColor: '#000a' },
+  scrim: { backgroundColor: colors.scrim },
   sheet: {
     position: 'absolute',
     left: 0,
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radii.xl,
     overflow: 'hidden',
   },
-  grab: { width: 36, height: 4, borderRadius: 4, backgroundColor: '#fff3', alignSelf: 'center', marginTop: 10, marginBottom: 12 },
+  grab: { width: 36, height: 4, borderRadius: 4, backgroundColor: colors.hairline, alignSelf: 'center', marginTop: 10, marginBottom: 12 },
   nowRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 12 },
   nowArt: { width: 46, height: 46, borderRadius: 10, backgroundColor: colors.s4 },
   header: { color: colors.text, fontFamily: font.bold, fontSize: 14, paddingHorizontal: 16, paddingBottom: 6 },
@@ -226,5 +226,5 @@ const styles = StyleSheet.create({
   sub: { color: colors.muted, fontFamily: font.regular, fontSize: 11 },
   handle: { width: 44, height: ROW_H, alignItems: 'center', justifyContent: 'center' },
   remove: { width: 96, backgroundColor: colors.primaryStrong, alignItems: 'center', justifyContent: 'center' },
-  removeText: { color: '#fff', fontFamily: font.semibold, fontSize: 12 },
+  removeText: { color: colors.white, fontFamily: font.semibold, fontSize: 12 },
 });

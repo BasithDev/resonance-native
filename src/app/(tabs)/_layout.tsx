@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import type { ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useConnectivity } from '@/net/connectivity';
 import { colors, font, layout } from '@/theme/tokens';
 
 type IconName = React.ComponentProps<typeof MaterialIcons>['name'];
@@ -16,6 +17,7 @@ const tab = (title: string, icon: IconName) => ({
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { online } = useConnectivity();
   return (
     <Tabs
       screenOptions={{
@@ -33,7 +35,12 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontFamily: font.medium, fontSize: 12 },
       }}>
       <Tabs.Screen name="index" options={tab('Library', 'library-music')} />
-      <Tabs.Screen name="search" options={tab('Search', 'search')} />
+      {/* Offline: dimmed and not tappable (searching needs the network). */}
+      <Tabs.Screen
+        name="search"
+        options={{ ...tab('Search', 'search'), tabBarItemStyle: online ? undefined : { opacity: 0.35 } }}
+        listeners={{ tabPress: (e) => !online && e.preventDefault() }}
+      />
       <Tabs.Screen name="offline" options={tab('Offline', 'download-done')} />
       <Tabs.Screen name="settings" options={tab('Settings', 'settings')} />
     </Tabs>
