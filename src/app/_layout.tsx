@@ -14,6 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { downloads } from '@/downloads/manager';
 import { usePlayer } from '@/player/store';
 import { colors, layout } from '@/theme/tokens';
 
@@ -41,6 +42,11 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded || error) SplashScreen.hideAsync();
   }, [loaded, error]);
+
+  // Puts downloads interrupted by a killed app back in the queue, then resumes it.
+  useEffect(() => {
+    void downloads.onStartup();
+  }, []);
 
   if (!loaded && !error) return null;
 
