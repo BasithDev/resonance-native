@@ -32,6 +32,7 @@ async function setup(opts: { connectivity?: Connectivity; cellular?: boolean; au
   // Hooks to hit narrow windows: run something right after a queued-songs query, or fail a write.
   let afterQueuedList: (() => Promise<void>) | null = null;
   let failWrite: ((sql: string, p: unknown[]) => boolean) | null = null;
+  let failWritesStay = false;
   const db: Db = {
     ...raw,
     async all<T>(sql: string, p: unknown[] = []) {
@@ -45,7 +46,7 @@ async function setup(opts: { connectivity?: Connectivity; cellular?: boolean; au
     },
     async run(sql: string, p: unknown[] = []) {
       if (failWrite?.(sql, p)) {
-        failWrite = null;
+        if (!failWritesStay) failWrite = null;
         throw new Error('disk I/O error');
       }
       return raw.run(sql, p);
@@ -165,6 +166,12 @@ async function setup(opts: { connectivity?: Connectivity; cellular?: boolean; au
     },
     failNextWrite: (match: (sql: string, p: unknown[]) => boolean) => {
       failWrite = match;
+      failWritesStay = false;
+    },
+    /** Every matching write fails until `match` is null (a full disk: reads still work). */
+    failWrites: (match: ((sql: string, p: unknown[]) => boolean) | null) => {
+      failWrite = match;
+      failWritesStay = match !== null;
     },
   };
 }
@@ -547,6 +554,35 @@ describe('download manager', () => {
     await waitFor(async () => (await t.state('a')) === 'failed', 'failed');
     await waitFor(() => t.m.store.getState().active === null, 'idle');
     expect(warn).toHaveBeenCalledWith('[downloads] could not record a failed download', expect.any(Error));
+    warn.mockRestore();
+  });
+
+  it('when the database rejects every write (disk full) the queue backs off instead of spinning', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const t = await setup();
+    await t.add('a');
+    await setDownload(t.db, 'a', { download: 'queued' });
+    const writes = jest.fn();
+    t.failWrites((sql) => {
+      if (!sql.startsWith('UPDATE songs')) return false;
+      writes();
+      return writes.mock.calls.length < 200; // without the fix, end the spin so the test fails, not hangs
+    });
+
+    await t.m.enqueue(['a']);
+    for (let i = 0; i < 50; i++) await new Promise((r) => setImmediate(r));
+
+    expect(writes.mock.calls.length).toBeLessThan(10); // one attempt, not a busy loop
+    expect(t.yt.download).not.toHaveBeenCalled();
+    expect(t.pendingTimers().map((x) => x.ms)).toEqual([30_000]);
+    expect(t.m.store.getState().pauseReason).toBe('network');
+
+    // Once the disk has room again the timer retries and the song downloads.
+    t.failWrites(null);
+    t.fireTimers();
+    await waitFor(() => t.jobs.length === 1, 'retry after backoff');
+    t.jobs[0].resolve();
+    await waitFor(async () => (await t.state('a')) === 'done', 'done');
     warn.mockRestore();
   });
 });

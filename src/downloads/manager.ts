@@ -289,7 +289,15 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
       } catch (e2) {
         // Couldn't record the outcome: don't leave the row 'downloading'; it gets another go.
         console.warn('[downloads] could not record a failed download', e2);
-        if (db) await setDownload(db, id, { download: 'queued' }).catch(() => {});
+        const requeued = db
+          ? await setDownload(db, id, { download: 'queued' }).then(() => true, () => false)
+          : false;
+        // Writes fail but reads work (e.g. disk full): the row is still 'queued', so the
+        // pump would pick it again at once. Back off instead of spinning.
+        if (!requeued) {
+          startBackoff();
+          void refresh();
+        }
       }
     } finally {
       job = null;
