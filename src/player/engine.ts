@@ -92,7 +92,8 @@ function update(patch: Partial<EngineStatus>) {
 }
 
 function readProgress() {
-  if (status.ended) return;
+  // On the end marker the progress is the silence's (~2 s), not the song's.
+  if (status.ended || TrackPlayer.getActiveMediaItemIndex() !== 0) return;
   const { position, duration } = TrackPlayer.getProgress();
   update({ positionSec: position, durationSec: duration });
 }
@@ -119,12 +120,17 @@ function ensureSetUp() {
   });
 }
 
-/** Leave the end marker: stop, rewind to the song, report `ended`. */
+/**
+ * Leave the end marker: stop, rewind to the song, then report `ended`.
+ * The native calls come first because subscribers react to `ended`
+ * synchronously (e.g. `engine.load(next, true)`), and a pause queued after
+ * that would stop the next song.
+ */
 function finishTrack() {
   setPolling(false);
-  update({ ended: true, playing: false, buffering: false, positionSec: status.durationSec });
   TrackPlayer.pause();
   TrackPlayer.skipToIndex(0);
+  update({ ended: true, playing: false, buffering: false, positionSec: status.durationSec });
 }
 
 function clearEnded() {

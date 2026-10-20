@@ -4,6 +4,7 @@ type MockState = {
   listeners: Map<string, Listener>;
   remoteHandlers: Record<string, (cmd: any) => void>;
   progress: { position: number; duration: number; buffered: number; cached: number };
+  activeIndex: number;
 };
 
 // The engine registers listeners when it is imported (before this file's body
@@ -13,6 +14,7 @@ jest.mock('@rntp/player', () => {
     listeners: new Map(),
     remoteHandlers: {},
     progress: { position: 0, duration: 0, buffered: 0, cached: 0 },
+    activeIndex: 0,
   };
   const Event = {
     PlaybackStateChanged: 'event.playback-state-changed',
@@ -35,6 +37,7 @@ jest.mock('@rntp/player', () => {
       seekTo: jest.fn(),
       skipToIndex: jest.fn(),
       getProgress: jest.fn(() => state.progress),
+      getActiveMediaItemIndex: jest.fn(() => state.activeIndex),
       addEventListener: jest.fn((event: string, cb: Listener) => {
         state.listeners.set(event, cb);
         return { remove: jest.fn() };
@@ -173,5 +176,50 @@ describe('engine.onRemote', () => {
     expect(TP.play).toHaveBeenCalled();
     press('seek', { position: 12 });
     expect(TP.seekTo).toHaveBeenCalledWith(12);
+  });
+});
+
+describe('end of track', () => {
+  const callOrder = (fn: jest.Mock) => fn.mock.invocationCallOrder[fn.mock.invocationCallOrder.length - 1];
+
+  it('lets an onStatus subscriber load the next song on `ended` without being paused', async () => {
+    await engine.load(song, true);
+    emit('event.playback-state-changed', { state: 'ready' });
+    const next = { ...song, uri: 'file:///data/songs/next.webm', title: 'Song B' };
+    const off = engine.onStatus((s) => {
+      if (s.ended) void engine.load(next, true);
+    });
+    jest.clearAllMocks();
+
+    emit('event.media-item-transition', { item: { mediaId: 'resonance:end' }, index: 1, reason: 'auto' });
+    off();
+
+    expect(TP.setMediaItems).toHaveBeenCalledTimes(1);
+    expect(TP.setMediaItems.mock.calls[0][0][0].url).toBe('file:///data/songs/next.webm');
+    expect(callOrder(TP.skipToIndex)).toBeLessThan(callOrder(TP.setMediaItems));
+    expect(callOrder(TP.pause)).toBeLessThan(callOrder(TP.setMediaItems));
+    expect(callOrder(TP.play)).toBeGreaterThan(callOrder(TP.setMediaItems));
+  });
+
+  it('ignores progress polled while the end marker is active', async () => {
+    jest.useFakeTimers();
+    const seen: EngineStatus[] = [];
+    const off = engine.onStatus((s) => seen.push(s));
+    await engine.load(song, true);
+    emit('event.is-playing-changed', { playing: true });
+    mock.progress = { position: 199, duration: 200, buffered: 0, cached: 0 };
+    jest.advanceTimersByTime(500);
+    expect(seen[seen.length - 1]).toMatchObject({ positionSec: 199, durationSec: 200 });
+
+    mock.activeIndex = 1;
+    mock.progress = { position: 0.1, duration: 2, buffered: 0, cached: 0 };
+    jest.advanceTimersByTime(500);
+    emit('event.playback-state-changed', { state: 'ready' });
+    expect(seen[seen.length - 1]).toMatchObject({ positionSec: 199, durationSec: 200 });
+
+    off();
+    mock.activeIndex = 0;
+    emit('event.is-playing-changed', { playing: false });
+    jest.useRealTimers();
   });
 });
