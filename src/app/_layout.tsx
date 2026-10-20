@@ -5,14 +5,30 @@ import {
   Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
-import { Stack } from 'expo-router';
+import { Stack, usePathname, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors } from '@/theme/tokens';
+import { MiniPlayer } from '@/components/MiniPlayer';
+import { usePlayer } from '@/player/store';
+import { colors, layout } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
+
+/** The mini-player floats above the tab bar (or the bottom edge off the tabs). */
+function FloatingMiniPlayer() {
+  const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const segments = useSegments();
+  const hasQueue = usePlayer((s) => s.queue !== null);
+  if (!hasQueue || pathname === '/player') return null;
+  const inTabs = segments[0] === '(tabs)';
+  return <MiniPlayer bottom={insets.bottom + (inTabs ? layout.tabBar + 6 : 10)} />;
+}
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -29,9 +45,17 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <>
+    <GestureHandlerRootView style={styles.root}>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
-    </>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+        <Stack.Screen
+          name="player"
+          options={{ presentation: 'transparentModal', animation: 'none', contentStyle: { backgroundColor: 'transparent' } }}
+        />
+      </Stack>
+      <FloatingMiniPlayer />
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({ root: { flex: 1, backgroundColor: colors.bg } });

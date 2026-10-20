@@ -1,0 +1,275 @@
+// The default store instance imports the real engine, yt-dlp client and
+// connectivity (all native). Each test builds its own store with fakes.
+jest.mock('./engine', () => ({
+  engine: { onStatus: () => () => {}, onRemote: () => () => {} },
+}));
+jest.mock('../youtube/client', () => ({ resolveStream: jest.fn() }));
+jest.mock('../net/connectivity', () => ({ getConnectivity: () => ({ online: true, wifi: true }) }));
+
+import type { Song } from '../library/types';
+import type { EngineStatus, PlayerEngine, RemoteCommand } from './engine';
+import { createPlayerStore } from './store';
+
+const song = (id: string, download: Song['download'] = 'done'): Song => ({
+  youtubeId: id,
+  title: `Title ${id}`,
+  channel: 'Chan',
+  durationSec: 100,
+  thumbnailUrl: `https://img/${id}.jpg`,
+  addedAt: 1,
+  download,
+  filePath: download === 'done' ? `/data/user/0/app/files/audio/${id}.webm` : null,
+  artPath: null,
+  sizeBytes: null,
+  downloadError: null,
+});
+
+function setup(opts: { online?: boolean } = {}) {
+  let status: EngineStatus = {
+    playing: false, buffering: false, positionSec: 0, durationSec: 0, ended: false, error: null,
+  };
+  let statusCb: (s: EngineStatus) => void = () => {};
+  let remoteCb: (c: RemoteCommand) => void = () => {};
+  const engine = {
+    load: jest.fn(async (_src: unknown, _autoplay: boolean, startSec?: number) => {
+      status = { playing: false, buffering: true, positionSec: startSec ?? 0, durationSec: 0, ended: false, error: null };
+      statusCb(status);
+    }),
+    play: jest.fn(),
+    pause: jest.fn(),
+    seekTo: jest.fn(),
+    onStatus: jest.fn((cb: (s: EngineStatus) => void) => {
+      statusCb = cb;
+      return () => {};
+    }),
+    onRemote: jest.fn((cb: (c: RemoteCommand) => void) => {
+      remoteCb = cb;
+      return () => {};
+    }),
+  } satisfies PlayerEngine;
+  let resolves = 0;
+  const resolveStream = jest.fn(async (id: string) => ({ url: `https://stream/${id}?v=${++resolves}` }));
+  const net = { online: opts.online ?? true };
+  const clock = { now: 1_000_000 };
+  const store = createPlayerStore({ engine, resolveStream, isOnline: () => net.online, now: () => clock.now });
+  return {
+    store,
+    engine,
+    resolveStream,
+    net,
+    clock,
+    emit(patch: Partial<EngineStatus>) {
+      status = { ...status, ...patch };
+      statusCb(status);
+    },
+    remote: (c: RemoteCommand) => remoteCb(c),
+    lastLoad: () => engine.load.mock.calls[engine.load.mock.calls.length - 1],
+  };
+}
+
+const flush = async () => {
+  for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+};
+const currentId = (t: ReturnType<typeof setup>) => {
+  const q = t.store.getState().queue!;
+  return q.items[q.index].youtubeId;
+};
+
+describe('player store', () => {
+  it('plays local file for downloaded songs without resolving', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a')], 0);
+    await flush();
+    expect(t.resolveStream).not.toHaveBeenCalled();
+    expect(t.engine.load).toHaveBeenCalledTimes(1);
+    const [src, autoplay] = t.lastLoad();
+    expect(src).toMatchObject({ uri: 'file:///data/user/0/app/files/audio/a.webm', title: 'Title a', artist: 'Chan' });
+    expect(autoplay).toBe(true);
+  });
+
+  it('resolves stream for non-downloaded song when online', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('b', 'none')], 0);
+    await flush();
+    expect(t.resolveStream).toHaveBeenCalledWith('b');
+    expect(t.lastLoad()[0]).toMatchObject({ uri: 'https://stream/b?v=1' });
+  });
+
+  it('on load error with an http source, re-resolves once and resumes at last position', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('b', 'none')], 0);
+    await flush();
+    t.emit({ playing: true, buffering: false, positionSec: 42, durationSec: 100 });
+    t.emit({ playing: false, error: 'Source error (403)' });
+    await flush();
+    expect(t.resolveStream).toHaveBeenCalledTimes(2);
+    expect(t.engine.load).toHaveBeenCalledTimes(2);
+    const [src, autoplay, startSec] = t.lastLoad();
+    expect(src).toMatchObject({ uri: 'https://stream/b?v=2' });
+    expect(autoplay).toBe(true);
+    expect(startSec).toBe(42);
+
+    // A second failure of the same song does not loop on re-resolving.
+    t.emit({ error: 'Source error (403)' });
+    await flush();
+    expect(t.resolveStream).toHaveBeenCalledTimes(2);
+  });
+
+  it('play after hours paused re-resolves the expired URL and resumes at the same position', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('b', 'none')], 0);
+    await flush();
+    t.emit({ playing: true, buffering: false, positionSec: 75, durationSec: 200 });
+    t.store.getState().togglePlay();
+    expect(t.engine.pause).toHaveBeenCalledTimes(1);
+    t.emit({ playing: false });
+    t.clock.now += 5 * 60 * 60 * 1000;
+    t.store.getState().togglePlay();
+    await flush();
+    expect(t.engine.play).not.toHaveBeenCalled();
+    expect(t.resolveStream).toHaveBeenCalledTimes(2);
+    const [src, autoplay, startSec] = t.lastLoad();
+    expect(src).toMatchObject({ uri: 'https://stream/b?v=2' });
+    expect(autoplay).toBe(true);
+    expect(startSec).toBe(75);
+  });
+
+  it('serves a cached stream URL instead of resolving again', async () => {
+    const t = setup();
+    const b = song('b', 'none');
+    t.store.getState().playSongs([b], 0);
+    await flush();
+    t.store.getState().playSongs([b], 0);
+    await flush();
+    expect(t.resolveStream).toHaveBeenCalledTimes(1);
+    expect(t.lastLoad()[0]).toMatchObject({ uri: 'https://stream/b?v=1' });
+  });
+
+  it('prefetches the next song’s stream URL', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a'), song('b', 'none')], 0);
+    await flush();
+    expect(t.resolveStream).toHaveBeenCalledWith('b');
+    t.store.getState().next();
+    await flush();
+    expect(t.resolveStream).toHaveBeenCalledTimes(1);
+    expect(t.lastLoad()[0]).toMatchObject({ uri: 'https://stream/b?v=1' });
+  });
+
+  it('when connectivity goes offline mid-stream, ended/error advances to next downloaded song', async () => {
+    for (const failure of [{ error: 'Unable to connect' }, { ended: true }] as Partial<EngineStatus>[]) {
+      const t = setup();
+      t.store.getState().playSongs([song('a', 'none'), song('b', 'none'), song('c')], 0);
+      await flush();
+      t.emit({ playing: true, buffering: false, positionSec: 10, durationSec: 100 });
+      t.net.online = false;
+      t.emit({ playing: false, ...failure });
+      await flush();
+      expect(currentId(t)).toBe('c');
+      const [src, autoplay] = t.lastLoad();
+      expect(src).toMatchObject({ uri: 'file:///data/user/0/app/files/audio/c.webm' });
+      expect(autoplay).toBe(true);
+      expect(t.store.getState().status.error).toBeNull();
+    }
+  });
+
+  it('stops quietly at the end of the queue when nothing else can play', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a', 'none'), song('b', 'none')], 0);
+    await flush();
+    t.net.online = false;
+    t.emit({ error: 'Unable to connect' });
+    await flush();
+    expect(t.engine.load).toHaveBeenCalledTimes(1);
+    expect(t.engine.pause).toHaveBeenCalled();
+    expect(currentId(t)).toBe('a');
+  });
+
+  it('play after a failed resolve tries the song again', async () => {
+    const t = setup();
+    t.resolveStream.mockRejectedValueOnce(new Error('Network error'));
+    t.store.getState().playSongs([song('b', 'none')], 0);
+    await flush();
+    expect(t.engine.load).not.toHaveBeenCalled();
+    t.store.getState().togglePlay();
+    await flush();
+    expect(t.lastLoad()[0]).toMatchObject({ uri: 'https://stream/b?v=1' });
+  });
+
+  it("remote 'next' from engine.onRemote calls next()", async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a'), song('b')], 0);
+    await flush();
+    t.remote('next');
+    await flush();
+    expect(currentId(t)).toBe('b');
+    expect(t.lastLoad()[0]).toMatchObject({ uri: 'file:///data/user/0/app/files/audio/b.webm' });
+    t.remote('previous');
+    await flush();
+    expect(currentId(t)).toBe('a');
+  });
+
+  it('remote play, pause and seek drive the engine', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a')], 0);
+    await flush();
+    t.remote('pause');
+    t.remote('play');
+    t.remote({ seekTo: 12 });
+    expect(t.engine.pause).toHaveBeenCalledTimes(1);
+    expect(t.engine.play).toHaveBeenCalledTimes(1);
+    expect(t.engine.seekTo).toHaveBeenCalledWith(12);
+  });
+
+  it('previous restarts the song after 3 seconds', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a'), song('b')], 1);
+    await flush();
+    t.emit({ playing: true, positionSec: 30 });
+    t.store.getState().previous();
+    await flush();
+    expect(t.engine.seekTo).toHaveBeenCalledWith(0);
+    expect(currentId(t)).toBe('b');
+  });
+
+  it('ended advances to the next song', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a'), song('b')], 0);
+    await flush();
+    t.emit({ ended: true, playing: false });
+    await flush();
+    expect(currentId(t)).toBe('b');
+    expect(t.engine.load).toHaveBeenCalledTimes(2);
+  });
+
+  it('onSongRemoved for the current song skips to the next playable', async () => {
+    const t = setup({ online: false });
+    t.store.getState().playSongs([song('a'), song('b', 'none'), song('c')], 0);
+    await flush();
+    t.store.getState().onSongRemoved('a');
+    await flush();
+    const q = t.store.getState().queue!;
+    expect(q.items.map((s) => s.youtubeId)).toEqual(['b', 'c']);
+    expect(currentId(t)).toBe('c');
+    expect(t.lastLoad()[0]).toMatchObject({ uri: 'file:///data/user/0/app/files/audio/c.webm' });
+  });
+
+  it('onSongRemoved for another song keeps playing the current one', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a'), song('b'), song('c')], 1);
+    await flush();
+    t.store.getState().onSongRemoved('a');
+    await flush();
+    expect(currentId(t)).toBe('b');
+    expect(t.engine.load).toHaveBeenCalledTimes(1);
+  });
+
+  it('onSongRemoved of the only song clears the queue', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a')], 0);
+    await flush();
+    t.store.getState().onSongRemoved('a');
+    expect(t.store.getState().queue).toBeNull();
+    expect(t.engine.pause).toHaveBeenCalled();
+  });
+});
