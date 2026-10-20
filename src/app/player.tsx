@@ -217,7 +217,7 @@ export default function PlayerScreen() {
                 name={liked ? 'favorite' : 'favorite-border'}
                 size={26}
                 color={liked ? colors.primary : colors.text}
-                onPress={() => void toggleLikeSong(song.youtubeId).catch(() => showToast("Couldn't update Liked songs"))}
+                onPress={() => void toggleLikeSong(song).catch(() => showToast("Couldn't update Liked songs"))}
                 label={liked ? 'Unlike' : 'Like'}
               />
             </View>

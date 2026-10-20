@@ -165,3 +165,35 @@ describe('library repo', () => {
     expect(await listTombstones(db)).toEqual([]);
   });
 });
+
+describe('songs not yet in the library (played from Search)', () => {
+  it('toggleLike with a track snapshot saves the song and likes it in one go', async () => {
+    expect(await toggleLike(db, track('t'))).toBe(true);
+    expect(await getSong(db, 't')).toMatchObject({ youtubeId: 't', title: 'Title t', download: 'none' });
+    expect((await getPlaylistSongs(db, 'liked')).map((s) => s.youtubeId)).toEqual(['t']);
+  });
+
+  it('addToPlaylist with a track snapshot saves the song and supersedes its old tombstone', async () => {
+    await addSong(db, track('t'));
+    await removeSong(db, 't');
+    await createPlaylist(db, 'P', () => 'p1');
+    await addToPlaylist(db, 'p1', track('t'));
+    expect((await getPlaylistSongs(db, 'p1')).map((s) => s.youtubeId)).toEqual(['t']);
+    expect(await listTombstones(db)).not.toContainEqual(expect.objectContaining({ kind: 'song', key: 't' }));
+  });
+
+  it('a track snapshot never overwrites a library song', async () => {
+    await addSong(db, track('a', 'Saved'));
+    await setDownload(db, 'a', { download: 'done', filePath: '/f/a.m4a' });
+    await toggleLike(db, track('a', 'Stale'));
+    expect(await getSong(db, 'a')).toMatchObject({ title: 'Saved', download: 'done', filePath: '/f/a.m4a' });
+  });
+
+  it('refuses to write a membership for an unknown song id (no orphan rows)', async () => {
+    await createPlaylist(db, 'P', () => 'p1');
+    await expect(toggleLike(db, 'ghost')).rejects.toThrow();
+    await expect(addToPlaylist(db, 'p1', 'ghost')).rejects.toThrow();
+    expect(await getPlaylistSongs(db, 'liked')).toEqual([]);
+    expect(await db.all('SELECT * FROM playlist_songs')).toEqual([]);
+  });
+});

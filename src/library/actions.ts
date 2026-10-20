@@ -12,17 +12,32 @@ export function playlistName(p: Pick<Playlist, 'kind' | 'name'>): string {
   return p.kind === 'liked' ? 'Liked songs' : p.name;
 }
 
-/** ♥ toggle. A newly liked song is queued for download when auto-download of liked songs is on. */
-export async function toggleLikeSong(youtubeId: string): Promise<boolean> {
+/**
+ * ♥ toggle. A newly liked song is queued for download when auto-download of liked songs is on.
+ * Pass the song (not just its id) so one played from Search without saving joins the library.
+ */
+export async function toggleLikeSong(song: repo.SongRef): Promise<boolean> {
   const db = await getDb();
-  const liked = await repo.toggleLike(db, youtubeId);
+  const liked = await repo.toggleLike(db, song);
   try {
-    if (liked) await downloads.onLiked(youtubeId);
+    if (liked) await downloads.onLiked(typeof song === 'string' ? song : song.youtubeId);
   } catch (e) {
     console.warn('[library] auto-download of a liked song failed', e);
   }
   libraryEvents.emit();
   return liked;
+}
+
+/** Adds the song to the playlist, saving it to the library first if it isn't there; then emits. */
+export async function addSongToPlaylist(playlistId: string, song: repo.SongSnapshot): Promise<void> {
+  await repo.addToPlaylist(await getDb(), playlistId, song);
+  libraryEvents.emit();
+}
+
+/** Queues the song's download, saving it to the library first if it isn't there. */
+export async function downloadSong(song: repo.SongSnapshot): Promise<void> {
+  if (await repo.ensureSong(await getDb(), song)) libraryEvents.emit();
+  await downloads.enqueue([song.youtubeId]);
 }
 
 /** Whether the song is in Liked songs, kept current across library writes. */

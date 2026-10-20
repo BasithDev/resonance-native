@@ -173,9 +173,45 @@ export async function getPlaylistSongs(db: Db, id: string): Promise<Song[]> {
   return rows.map(toSong);
 }
 
+/**
+ * A song by id (must already be in the library) or by its snapshot (a track played from
+ * Search without saving): a snapshot is saved first when the library doesn't have it.
+ */
+export type SongSnapshot = Pick<Song, 'youtubeId' | 'title' | 'channel' | 'durationSec' | 'thumbnailUrl'>;
+export type SongRef = string | SongSnapshot;
+
+const refId = (ref: SongRef) => (typeof ref === 'string' ? ref : ref.youtubeId);
+
 // Non-transactional building blocks so toggleLike can compose them inside one tx
 // (tx is not nestable).
-async function insertMembership(db: Db, playlistId: string, youtubeId: string): Promise<void> {
+
+/** Saves `ref` when it is a snapshot the library lacks; throws for an unknown id. Returns whether it inserted. */
+async function ensureSongRow(db: Db, ref: SongRef): Promise<boolean> {
+  const youtubeId = refId(ref);
+  if (await db.first('SELECT 1 AS x FROM songs WHERE youtube_id = ?', [youtubeId])) return false;
+  if (typeof ref === 'string') throw new Error(`Song not in the library: ${youtubeId}`);
+  await db.run(
+    `INSERT INTO songs (youtube_id, title, channel, duration_sec, thumbnail_url, added_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [ref.youtubeId, ref.title, ref.channel, ref.durationSec, ref.thumbnailUrl, now()],
+  );
+  // Re-adding supersedes an earlier deletion, so sync must not delete it again.
+  await db.run("DELETE FROM tombstones WHERE kind = 'song' AND key = ?", [youtubeId]);
+  return true;
+}
+
+/** Saves a snapshot the library lacks (an existing song is left untouched). Returns whether it inserted. */
+export async function ensureSong(db: Db, t: SongSnapshot): Promise<boolean> {
+  let inserted = false;
+  await db.tx(async () => {
+    inserted = await ensureSongRow(db, t);
+  });
+  return inserted;
+}
+
+async function insertMembership(db: Db, playlistId: string, ref: SongRef): Promise<void> {
+  await ensureSongRow(db, ref);
+  const youtubeId = refId(ref);
   const ts = now();
   const row = await db.first<{ next: number }>(
     'SELECT COALESCE(MAX(position), -1) + 1 AS next FROM playlist_songs WHERE playlist_id = ?',
@@ -205,8 +241,8 @@ async function deleteMembership(db: Db, playlistId: string, youtubeId: string): 
   await db.run('UPDATE playlists SET updated_at = ? WHERE id = ?', [ts, playlistId]);
 }
 
-export async function addToPlaylist(db: Db, playlistId: string, youtubeId: string): Promise<void> {
-  await db.tx(() => insertMembership(db, playlistId, youtubeId));
+export async function addToPlaylist(db: Db, playlistId: string, song: SongRef): Promise<void> {
+  await db.tx(() => insertMembership(db, playlistId, song));
 }
 
 export async function removeFromPlaylist(
@@ -238,13 +274,14 @@ export async function isLiked(db: Db, youtubeId: string): Promise<boolean> {
 }
 
 /** Returns the new liked state. */
-export async function toggleLike(db: Db, youtubeId: string): Promise<boolean> {
+export async function toggleLike(db: Db, song: SongRef): Promise<boolean> {
+  const youtubeId = refId(song);
   let liked = false;
   await db.tx(async () => {
     if (await isLiked(db, youtubeId)) {
       await deleteMembership(db, LIKED_ID, youtubeId);
     } else {
-      await insertMembership(db, LIKED_ID, youtubeId);
+      await insertMembership(db, LIKED_ID, song);
       liked = true;
     }
   });

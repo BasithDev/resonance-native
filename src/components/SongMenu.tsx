@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getDb } from '@/db/instance';
 import { downloads } from '@/downloads/manager';
-import { playlistName, toggleLikeSong, useIsLiked } from '@/library/actions';
+import { addSongToPlaylist, downloadSong, playlistName, toggleLikeSong, useIsLiked } from '@/library/actions';
 import { libraryEvents } from '@/library/events';
 import * as repo from '@/library/repo';
 import type { DownloadState, Playlist, Song } from '@/library/types';
@@ -89,8 +89,7 @@ export function SongMenu({ song, onClose, playlist }: { song: Song | null; onClo
 
   async function addTo(p: Playlist, s: Song) {
     try {
-      await repo.addToPlaylist(await getDb(), p.id, s.youtubeId);
-      libraryEvents.emit();
+      await addSongToPlaylist(p.id, s);
       showToast(`Added to ${playlistName(p)}`);
     } catch (e) {
       report('add to the playlist')(e);
@@ -131,7 +130,7 @@ export function SongMenu({ song, onClose, playlist }: { song: Song | null; onClo
         icon="download"
         iconColor={colors.mint}
         label={song.download === 'failed' ? 'Retry download' : 'Download to phone'}
-        onPress={act(() => downloads.enqueue([id]), 'start the download')}
+        onPress={act(() => downloadSong(song), 'start the download')}
       />
     );
 
@@ -178,7 +177,7 @@ export function SongMenu({ song, onClose, playlist }: { song: Song | null; onClo
               icon={liked ? 'favorite' : 'favorite-border'}
               iconColor={liked ? colors.primary : colors.text}
               label={liked ? 'Unlike' : 'Like'}
-              onPress={act(() => toggleLikeSong(id), 'update Liked songs')}
+              onPress={act(() => toggleLikeSong(song), 'update Liked songs')}
             />
             {playlist && playlist.kind === 'user' ? (
               <Option
