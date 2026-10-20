@@ -387,6 +387,15 @@ describe('superShuffle', () => {
     expect(q.items.map((s) => s.youtubeId).sort()).toEqual(['b', 'c']);
   });
 
+  it('starts at a random song, not always the first', async () => {
+    const t = setup({ shuffleSongs: [song('a'), song('b'), song('c')] });
+    jest.spyOn(Math, 'random').mockReturnValue(0.9);
+    await t.store.getState().superShuffle();
+    jest.restoreAllMocks();
+    await flush();
+    expect(currentId(t)).toBe('c');
+  });
+
   it('an empty library is nothing-playable', async () => {
     const t = setup();
     expect(await t.store.getState().superShuffle()).toBe('nothing-playable');

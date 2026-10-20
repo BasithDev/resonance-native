@@ -263,7 +263,8 @@ export function createPlayerStore(deps: PlayerDeps) {
           });
         const songs = (await load()).filter(playable);
         if (songs.length === 0) return 'nothing-playable';
-        get().playSongs(songs, 0, { shuffle: true });
+        // shuffleFrom pins the start song, so start somewhere random to keep the whole order random.
+        get().playSongs(songs, Math.floor(Math.random() * songs.length), { shuffle: true });
         return 'started';
       },
 
