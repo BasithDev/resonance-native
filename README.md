@@ -29,6 +29,8 @@ npx expo prebuild -p android --clean
 cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
 ```
 
+`-PreactNativeArchitectures=arm64-v8a` builds only for 64-bit phones, which gives a smaller, faster build.
+
 Install on a connected phone:
 
 ```sh
@@ -40,7 +42,7 @@ adb install -r android/app/build/outputs/apk/release/app-release.apk
 The release keystore and its passwords live outside the repo:
 
 - `~/.resonance/resonance-release.keystore` (alias `resonance`, valid 10000 days)
-- `~/.resonance/keystore.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`; chmod 600)
+- `~/.resonance/keystore.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`; chmod 600). `storeFile` must be an absolute path
 
 Back both up somewhere safe. If you lose them you cannot update the installed app in place: Android will refuse an APK signed with a different key, and you would have to uninstall (losing downloads) first. If `keystore.properties` is missing, prebuild prints a warning and the release APK is debug-signed instead.
 

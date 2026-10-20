@@ -55,6 +55,9 @@ module.exports = function withReleaseSigning(config) {
     src = src.replace(/signingConfigs\s*\{\n/, (m) => m + releaseCfg);
     // Point the release build type at the new config (it uses signingConfigs.debug in the template).
     src = src.replace(/(buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?)signingConfig\s+signingConfigs\.debug/, '$1signingConfig signingConfigs.release');
+    if (!src.includes('signingConfig signingConfigs.release')) {
+      console.warn('[withReleaseSigning] could not point buildTypes.release at the release signingConfig (template changed?) - release build will be debug-signed.');
+    }
     c.modResults.contents = src;
     return c;
   });
