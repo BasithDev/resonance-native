@@ -23,34 +23,12 @@ import { libraryEvents } from '@/library/events';
 import * as repo from '@/library/repo';
 import type { Song } from '@/library/types';
 import { useLibrary } from '@/library/useLibrary';
+import { usePlaylistSongs } from '@/library/usePlaylistSongs';
 import { artworkUri, usePlayer } from '@/player/store';
 import { formatDuration } from '@/stats/format';
 import { colors, font, layout, radii } from '@/theme/tokens';
 
 const LONG_PRESS_MS = 300;
-
-/** The playlist's songs in order, re-read after every library write. */
-function usePlaylistSongs(id: string) {
-  const [songs, setSongs] = useState<Song[] | null>(null);
-  useEffect(() => {
-    let alive = true;
-    let seq = 0;
-    const load = () => {
-      const mine = ++seq;
-      getDb()
-        .then((db) => repo.getPlaylistSongs(db, id))
-        .then((s) => alive && mine === seq && setSongs(s))
-        .catch((e) => console.warn('[playlist] load failed', e));
-    };
-    load();
-    const off = libraryEvents.subscribe(load);
-    return () => {
-      alive = false;
-      off();
-    };
-  }, [id]);
-  return [songs, setSongs] as const;
-}
 
 function DraggableRow({
   song, pos, count, drag, scroll, enabled, onMove, onPress, onMenu,

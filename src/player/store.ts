@@ -45,7 +45,7 @@ export type PlayerState = {
   enqueue(s: Song): void;
   removeFromQueue(i: number): void;
   moveInQueue(from: number, to: number): void;
-  /** Empties "up next"; the current song keeps playing. */
+  /** Leaves only the current song in the queue; it keeps playing. */
   clearUpNext(): void;
   /** The song left the library (download manager): drop it and skip it if playing. */
   onSongRemoved(youtubeId: string): void;
@@ -332,11 +332,11 @@ export function createPlayerStore(deps: PlayerDeps) {
 
       moveInQueue: (from, to) => edit((q) => Q.move(q, from, to)),
 
+      // Only the current song is left, so repeat-all can't wrap back to songs heard earlier.
       clearUpNext: () =>
         edit((q) => {
-          const items = q.items.slice(0, q.index + 1); // what already played stays for "previous"
-          const original = q.shuffle ? q.original.filter((s) => items.includes(s)) : items;
-          return { ...q, items, original };
+          const cur = q.items[q.index];
+          return cur ? { ...q, items: [cur], original: [cur], index: 0 } : q;
         }),
 
       onSongUpdated(song) {

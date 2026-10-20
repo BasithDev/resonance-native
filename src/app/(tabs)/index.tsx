@@ -1,7 +1,7 @@
 // Library home (mockup screen 1): greeting, filters, play buttons, playlists carousel, all songs.
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,10 +12,9 @@ import { PressableScale } from '@/components/PressableScale';
 import { SongMenu } from '@/components/SongMenu';
 import { SONG_ROW_H, SongRow } from '@/components/SongRow';
 import { getDb } from '@/db/instance';
-import { libraryEvents } from '@/library/events';
-import * as repo from '@/library/repo';
 import type { Song } from '@/library/types';
 import { useLibrary } from '@/library/useLibrary';
+import { usePlaylistSongs } from '@/library/usePlaylistSongs';
 import { runSuperShuffle } from '@/player/superShuffle';
 import { usePlayer } from '@/player/store';
 import { formatDuration } from '@/stats/format';
@@ -48,7 +47,7 @@ function useListenedToday(): number | null {
       getDb()
         .then((db) => getStats(db, Date.now()))
         .then((s) => alive && setSec(s.todaySec))
-        .catch(() => {});
+        .catch((e) => console.warn('[library] listened-today stat failed', e));
       return () => {
         alive = false;
       };
@@ -57,30 +56,10 @@ function useListenedToday(): number | null {
   return sec;
 }
 
-/** The Liked playlist's songs, kept current. */
-function useLikedSongs(): Song[] {
-  const [songs, setSongs] = useState<Song[]>([]);
-  useEffect(() => {
-    let alive = true;
-    const load = () =>
-      getDb()
-        .then((db) => repo.getPlaylistSongs(db, 'liked'))
-        .then((s) => alive && setSongs(s))
-        .catch(() => {});
-    load();
-    const off = libraryEvents.subscribe(load);
-    return () => {
-      alive = false;
-      off();
-    };
-  }, []);
-  return songs;
-}
-
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
   const { songs, playlists, loaded } = useLibrary();
-  const liked = useLikedSongs();
+  const liked = usePlaylistSongs('liked')[0] ?? [];
   const today = useListenedToday();
   const playSongs = usePlayer((s) => s.playSongs);
   const [filter, setFilter] = useState<Filter>('all');

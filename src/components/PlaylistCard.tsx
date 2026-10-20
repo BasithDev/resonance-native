@@ -98,7 +98,12 @@ const styles = StyleSheet.create({
   carousel: { width: 104 },
   grid: { flex: 1 },
   cover: { overflow: 'hidden', backgroundColor: colors.s3, alignItems: 'center', justifyContent: 'center' },
-  liked: { experimental_backgroundImage: `linear-gradient(135deg, ${colors.primaryStrong}, ${colors.s3})` },
+  // Solid primaryStrong always shows; the gradient on top is supported on RN 0.86 Android
+  // (ReactViewManager / BackgroundStyleApplicator) and also used by ArtworkBackdrop.
+  liked: {
+    backgroundColor: colors.primaryStrong,
+    experimental_backgroundImage: `linear-gradient(135deg, ${colors.primaryStrong}, ${colors.s3})`,
+  },
   badge: {
     position: 'absolute', right: 8, top: 8, backgroundColor: colors.mint,
     borderRadius: radii.pill, paddingHorizontal: 7, paddingVertical: 2,

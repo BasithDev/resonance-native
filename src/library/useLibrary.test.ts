@@ -9,7 +9,8 @@ import type { YtTrack } from './types';
 import { useLibrary, type Library } from './useLibrary';
 
 let mockDb: Db;
-jest.mock('../db/instance', () => ({ getDb: () => Promise.resolve(mockDb) }));
+const mockGetDb = jest.fn(() => Promise.resolve(mockDb));
+jest.mock('../db/instance', () => ({ getDb: () => mockGetDb() }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -73,11 +74,13 @@ describe('useLibrary', () => {
     act(() => renderer.unmount());
   });
 
-  it('stops listening after unmount', async () => {
-    const { result, renderer } = await renderLibrary();
-    act(() => renderer.unmount());
-    await addSong(mockDb, track('a'));
+  it('stops re-reading after unmount', async () => {
+    mockGetDb.mockClear();
+    const { renderer } = await renderLibrary();
     await act(async () => libraryEvents.emit());
-    expect(result.current!.songs).toHaveLength(0);
+    expect(mockGetDb).toHaveBeenCalledTimes(2); // mount + emit
+    act(() => renderer.unmount());
+    await act(async () => libraryEvents.emit());
+    expect(mockGetDb).toHaveBeenCalledTimes(2); // no read once unmounted
   });
 });

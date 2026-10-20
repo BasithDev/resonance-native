@@ -27,18 +27,17 @@ export async function toggleLikeSong(youtubeId: string): Promise<boolean> {
 
 /** Whether the song is in Liked songs, kept current across library writes. */
 export function useIsLiked(youtubeId: string | null): boolean {
-  const [liked, setLiked] = useState(false);
+  const [state, setState] = useState<{ id: string | null; liked: boolean }>({ id: youtubeId, liked: false });
+  // A new song starts unliked until its own read lands (no flash of the previous song's ♥).
+  if (state.id !== youtubeId) setState({ id: youtubeId, liked: false });
   useEffect(() => {
-    if (!youtubeId) {
-      setLiked(false);
-      return;
-    }
+    if (!youtubeId) return;
     let alive = true;
     const load = () =>
       getDb()
         .then((db) => repo.isLiked(db, youtubeId))
-        .then((v) => alive && setLiked(v))
-        .catch(() => {});
+        .then((liked) => alive && setState({ id: youtubeId, liked }))
+        .catch((e) => console.warn('[library] liked state failed', e));
     load();
     const off = libraryEvents.subscribe(load);
     return () => {
@@ -46,5 +45,5 @@ export function useIsLiked(youtubeId: string | null): boolean {
       off();
     };
   }, [youtubeId]);
-  return liked;
+  return state.id === youtubeId && state.liked;
 }
