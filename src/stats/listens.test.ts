@@ -19,4 +19,18 @@ describe('listens', () => {
     await listens.markSynced(db, [rows[1].id]);
     expect(await listens.unsynced(db)).toEqual([]);
   });
+
+  it('markSynced handles more ids than SQLite allows variables in one statement', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const n = 40_000;
+    await db.tx(async () => {
+      for (let i = 0; i < n; i++) await listens.log(db, 'a', 1, i);
+    });
+    await listens.log(db, 'later', 1, n);
+    const rows = await listens.unsynced(db);
+    const sent = rows.slice(0, n).map((r) => r.id);
+    await listens.markSynced(db, sent);
+    expect((await listens.unsynced(db)).map((r) => r.youtubeId)).toEqual(['later']);
+  });
 });

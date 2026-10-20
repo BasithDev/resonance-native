@@ -28,7 +28,12 @@ export async function unsynced(db: Db): Promise<Listen[]> {
   return rows.map((r) => ({ id: r.id, youtubeId: r.youtube_id, durationSec: r.duration_sec, playedAt: r.played_at }));
 }
 
+/** SQLite caps a statement's bound variables (32,766), so ids go in chunks. */
+const MARK_CHUNK = 500;
+
 export async function markSynced(db: Db, ids: number[]): Promise<void> {
-  if (ids.length === 0) return;
-  await db.run(`UPDATE listens SET synced = 1 WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+  for (let i = 0; i < ids.length; i += MARK_CHUNK) {
+    const chunk = ids.slice(i, i + MARK_CHUNK);
+    await db.run(`UPDATE listens SET synced = 1 WHERE id IN (${chunk.map(() => '?').join(',')})`, chunk);
+  }
 }
