@@ -15,11 +15,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.basith.resonance"
-    },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "package": "com.basith.resonance",
+      "versionCode": 1
     },
     "plugins": [
       "expo-router",
@@ -50,7 +47,8 @@
             }
           ]
         }
-      ]
+      ],
+      "./plugins/withReleaseSigning.js"
     ],
     "experiments": {
       "typedRoutes": true,
