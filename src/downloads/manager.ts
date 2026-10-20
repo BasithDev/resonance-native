@@ -386,6 +386,18 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
       await refresh();
     },
 
+    /**
+     * For songs a sync already removed from the library: cancels their download and deletes
+     * their files. No per-song player or library events — the caller emits once.
+     */
+    async forgetSongs(youtubeIds: string[]) {
+      for (const id of youtubeIds) {
+        if (job?.youtubeId === id) stopActive('remove');
+        deleteFiles(id);
+      }
+      await refresh();
+    },
+
     /** Stops the active download (it goes back to the queue) until `resume`. */
     pause() {
       userPaused = true;

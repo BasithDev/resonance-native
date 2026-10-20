@@ -28,7 +28,8 @@ function FloatingMiniPlayer() {
   const pathname = usePathname();
   const segments = useSegments();
   const hasQueue = usePlayer((s) => s.queue !== null);
-  if (!hasQueue || pathname === '/player') return null;
+  // Hidden on the full-screen player and the sync camera.
+  if (!hasQueue || pathname === '/player' || pathname === '/sync') return null;
   const inTabs = segments[0] === '(tabs)';
   return <MiniPlayer bottom={insets.bottom + (inTabs ? layout.tabBar + 6 : 10)} />;
 }

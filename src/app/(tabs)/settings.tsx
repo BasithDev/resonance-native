@@ -1,3 +1,5 @@
+import { MaterialIcons } from '@expo/vector-icons';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +11,7 @@ import { downloads } from '@/downloads/manager';
 import { libraryEvents } from '@/library/events';
 import * as repo from '@/library/repo';
 import { useSettings } from '@/settings/store';
+import { formatAgo } from '@/sync/format';
 import * as youtube from '@/youtube/client';
 import { colors, font, layout, radii } from '@/theme/tokens';
 
@@ -97,6 +100,35 @@ function StorageRows() {
   );
 }
 
+/** "Last synced 2 days ago"; re-read when shown and after any library change (a sync emits one). */
+function SyncRow() {
+  const [lastSyncAt, setLastSyncAt] = useState<number | null | undefined>(undefined);
+
+  const refresh = useCallback(async () => {
+    setLastSyncAt(await repo.getLastSyncAt(await getDb()));
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh().catch(() => {});
+    }, [refresh]),
+  );
+  useEffect(() => libraryEvents.subscribe(() => refresh().catch(() => {})), [refresh]);
+
+  const hint =
+    lastSyncAt === undefined ? ' ' : lastSyncAt === null ? 'Never synced' : `Last synced ${formatAgo(lastSyncAt, Date.now())}`;
+
+  return (
+    <Pressable accessibilityRole="button" onPress={() => router.push('/sync')} style={styles.row}>
+      <View style={styles.flex}>
+        <Text style={styles.label}>Sync with web</Text>
+        <Text style={styles.hint}>{hint}</Text>
+      </View>
+      <MaterialIcons name="sync" size={22} color={colors.primary} />
+    </Pressable>
+  );
+}
+
 function YtdlpRow() {
   const [version, setVersion] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -146,7 +178,9 @@ export default function SettingsScreen() {
       contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: layout.miniPlayer + 12 }}>
       <Text style={styles.title}>Settings</Text>
 
-      {/* TODO(Task 15): the Sync section goes here, above Downloads. */}
+      <Section title="Sync">
+        <SyncRow />
+      </Section>
 
       <Section title="Downloads">
         <ToggleRow label="Download on mobile data" hint="Off: downloads wait for Wi-Fi" value={downloadOnCellular} onChange={(v) => set('downloadOnCellular', v)} />

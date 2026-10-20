@@ -74,10 +74,9 @@ export default function LibraryScreen() {
     <View>
       <View style={styles.top}>
         <Text style={styles.h1}>{greeting(new Date().getHours())}</Text>
-        {/* Sync: wired up in Plan 2. */}
-        <View style={styles.sync} accessibilityLabel="Sync">
+        <PressableScale onPress={() => router.push('/sync')} style={styles.sync} accessibilityRole="button" accessibilityLabel="Sync">
           <MaterialIcons name="sync" size={20} color={colors.text} />
-        </View>
+        </PressableScale>
       </View>
 
       <View style={styles.pills}>
