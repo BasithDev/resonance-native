@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, font, radii } from '@/theme/tokens';
 
 export const NOTHING_TO_SHUFFLE = 'Nothing downloaded to shuffle';
+export const NO_PLAYLIST_SONGS = 'Add songs to a playlist to super shuffle';
 const SHOW_MS = 2500;
 
 type Listener = (message: string | null) => void;
