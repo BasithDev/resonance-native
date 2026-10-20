@@ -415,3 +415,11 @@ export async function getLastSyncAt(db: Db): Promise<number | null> {
 export async function setLastSyncAt(db: Db, t: number): Promise<void> {
   await db.run("INSERT OR REPLACE INTO kv (key, value) VALUES ('lastSyncAt', ?)", [String(t)]);
 }
+
+/** Every distinct song that is in any playlist (Liked included), unshuffled. */
+export async function superShuffleSongs(db: Db): Promise<Song[]> {
+  const rows = await db.all<SongRow>(
+    'SELECT s.* FROM songs s WHERE s.youtube_id IN (SELECT youtube_id FROM playlist_songs) ORDER BY s.added_at DESC, s.youtube_id',
+  );
+  return rows.map(toSong);
+}

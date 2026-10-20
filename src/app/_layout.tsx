@@ -14,6 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { ToastHost } from '@/components/Toast';
 import { usePlayer } from '@/player/store';
 import { colors, layout } from '@/theme/tokens';
 
@@ -54,6 +55,7 @@ export default function RootLayout() {
         />
       </Stack>
       <FloatingMiniPlayer />
+      <ToastHost />
     </GestureHandlerRootView>
   );
 }

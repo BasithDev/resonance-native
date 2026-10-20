@@ -16,6 +16,7 @@ import { getConnectivity } from '../net/connectivity';
 import { resolveStream } from '../youtube/client';
 import { engine, type EngineStatus, type PlayerEngine } from './engine';
 import * as Q from './queue';
+import { useSleepTimer } from './sleepTimer';
 import type { QueueState } from './queue';
 
 export type { QueueState, RepeatMode } from './queue';
@@ -28,6 +29,8 @@ export type PlayerState = {
   queue: QueueState | null;
   status: EngineStatus;
   playSongs(songs: Song[], index: number, opts?: { shuffle?: boolean }): void;
+  /** Shuffle every playlist song (downloaded ones only when offline). */
+  superShuffle(): Promise<'started' | 'nothing-playable'>;
   togglePlay(): void;
   next(): void;
   previous(): void;
@@ -52,6 +55,8 @@ export type PlayerDeps = {
   resolveStream: (youtubeId: string) => Promise<{ url: string }>;
   isOnline: () => boolean;
   now?: () => number;
+  /** Every song in any playlist (default: the app database). */
+  loadSuperShuffle?: () => Promise<Song[]>;
 };
 
 const IDLE: EngineStatus = { playing: false, buffering: false, positionSec: 0, durationSec: 0, ended: false, error: null };
@@ -215,6 +220,12 @@ export function createPlayerStore(deps: PlayerDeps) {
     deps.engine.onStatus((s) => {
       const prev = get().status;
       set({ status: s });
+      // Sleep timer: a wall-clock deadline checked on every tick, so it works with the screen off.
+      const trackEnded = !!source && s.ended && !prev.ended;
+      if (useSleepTimer.getState().shouldPause(now(), trackEnded)) {
+        deps.engine.pause();
+        if (trackEnded) return; // stay on the finished song instead of advancing
+      }
       if (!source) return; // a load is in flight; these events are about the old song
       if (s.playing) failures = 0;
       if (!s.ended && s.positionSec > 0) lastPosition = s.positionSec;
@@ -241,6 +252,20 @@ export function createPlayerStore(deps: PlayerDeps) {
         if (!first) return;
         failures = 0;
         go(first);
+      },
+
+      async superShuffle() {
+        const load =
+          deps.loadSuperShuffle ??
+          (async () => {
+            const [{ getDb }, { superShuffleSongs }] = await Promise.all([import('../db/instance'), import('../library/repo')]);
+            return superShuffleSongs(await getDb());
+          });
+        const songs = (await load()).filter(playable);
+        if (songs.length === 0) return 'nothing-playable';
+        // shuffleFrom pins the start song, so start somewhere random to keep the whole order random.
+        get().playSongs(songs, Math.floor(Math.random() * songs.length), { shuffle: true });
+        return 'started';
       },
 
       togglePlay() {
