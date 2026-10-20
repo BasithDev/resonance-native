@@ -4,7 +4,7 @@
  * - Downloaded songs play from their file; others stream from a resolved
  *   YouTube URL (cached 4 h, prefetched for the next song while one plays).
  * - A stream error re-resolves the URL once and resumes at the last position
- *   (expired URLs). Any other failure, e.g. the signal dropping, moves on to
+ *   (expired URLs); if the song finished downloading meanwhile it resumes from the file. Any other failure, e.g. the signal dropping, moves on to
  *   the next playable song: offline that means the next downloaded one.
  * - While subscribed to `engine.onRemote` the store handles every remote
  *   command itself (lock screen, notification, headset).
@@ -198,6 +198,13 @@ export function createPlayerStore(deps: PlayerDeps) {
     }
 
     function onError(message: string) {
+      const q = get().queue;
+      const cur = q?.items[q.index];
+      if (source?.kind === 'http' && cur && isLocal(cur)) {
+        // It finished downloading while streaming: carry on from the file instead of skipping.
+        void loadCurrent(true, { startSec: lastPosition || undefined });
+        return;
+      }
       if (source?.kind === 'http' && !retried && deps.isOnline()) {
         retried = true; // the URL probably expired: fetch a new one, resume where we were
         void loadCurrent(true, { startSec: lastPosition || undefined, fresh: true });

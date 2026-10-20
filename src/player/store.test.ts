@@ -183,6 +183,25 @@ describe('player store', () => {
     }
   });
 
+  it('a streaming song that finished downloading mid-play resumes from its file when the signal drops', async () => {
+    for (const online of [false, true]) {
+      const t = setup();
+      t.store.getState().playSongs([song('a', 'none'), song('b', 'none')], 0);
+      await flush();
+      t.emit({ playing: true, buffering: false, positionSec: 37, durationSec: 100 });
+      t.store.getState().onSongUpdated(song('a')); // its download finished while streaming
+      t.net.online = online;
+      t.emit({ playing: false, error: 'Unable to connect' });
+      await flush();
+      expect(currentId(t)).toBe('a');
+      const [src, autoplay, startSec] = t.lastLoad();
+      expect(src).toMatchObject({ uri: 'file:///data/user/0/app/files/audio/a.webm' });
+      expect(autoplay).toBe(true);
+      expect(startSec).toBe(37);
+      expect(t.resolveStream.mock.calls.filter(([id]) => id === 'a')).toHaveLength(1); // not re-resolved
+    }
+  });
+
   it('stops quietly at the end of the queue when nothing else can play', async () => {
     const t = setup();
     t.store.getState().playSongs([song('a', 'none'), song('b', 'none')], 0);
