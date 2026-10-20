@@ -8,6 +8,8 @@
     "@expo/vector-icons": "^15.0.2",
     "@rntp/player": "5.12.1",
     "expo": "~57.0.30",
+    "expo-build-properties": "~57.0.22",
+    "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.22",
     "expo-crypto": "~57.0.4",
     "expo-device": "~57.0.2",

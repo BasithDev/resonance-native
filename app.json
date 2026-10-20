@@ -50,6 +50,22 @@
             }
           ]
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Resonance uses the camera to scan the sync QR code on your computer.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
     "experiments": {
