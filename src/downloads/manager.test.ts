@@ -24,9 +24,34 @@ async function waitFor(cond: () => boolean | Promise<boolean>, what = 'condition
   throw new Error(`timed out waiting for ${what}`);
 }
 
+type Timer = { cb: () => void; ms: number; cancelled: boolean };
+
 async function setup(opts: { connectivity?: Connectivity; cellular?: boolean; autoLiked?: boolean } = {}) {
-  const db: Db = createTestDb();
-  await migrate(db);
+  const raw: Db = createTestDb();
+  await migrate(raw);
+  // Hooks to hit narrow windows: run something right after a queued-songs query, or fail a write.
+  let afterQueuedList: (() => Promise<void>) | null = null;
+  let failWrite: ((sql: string, p: unknown[]) => boolean) | null = null;
+  const db: Db = {
+    ...raw,
+    async all<T>(sql: string, p: unknown[] = []) {
+      const rows = await raw.all<T>(sql, p);
+      if (afterQueuedList && sql.includes('download IN') && p[0] === 'queued') {
+        const cb = afterQueuedList;
+        afterQueuedList = null;
+        await cb();
+      }
+      return rows;
+    },
+    async run(sql: string, p: unknown[] = []) {
+      if (failWrite?.(sql, p)) {
+        failWrite = null;
+        throw new Error('disk I/O error');
+      }
+      return raw.run(sql, p);
+    },
+  };
+  const timers: Timer[] = [];
 
   // Fake app storage: paths relative to /docs.
   const files = new Set<string>();
@@ -103,6 +128,13 @@ async function setup(opts: { connectivity?: Connectivity; cellular?: boolean; au
     player,
     emit,
     now: () => ++clock,
+    schedule: (cb, ms) => {
+      const t: Timer = { cb, ms, cancelled: false };
+      timers.push(t);
+      return () => {
+        t.cancelled = true;
+      };
+    },
   });
 
   const add = async (id: string) =>
@@ -119,6 +151,20 @@ async function setup(opts: { connectivity?: Connectivity; cellular?: boolean; au
     progress: (jobId: string, percent: number) => progressCb?.({ jobId, percent, etaSec: 1 }),
     loseCancels: () => {
       cancelIsLost = true;
+    },
+    timers,
+    pendingTimers: () => timers.filter((x) => !x.cancelled),
+    fireTimers: () => {
+      for (const x of timers.filter((y) => !y.cancelled)) {
+        x.cancelled = true;
+        x.cb();
+      }
+    },
+    onNextQueuedList: (cb: () => Promise<void>) => {
+      afterQueuedList = cb;
+    },
+    failNextWrite: (match: (sql: string, p: unknown[]) => boolean) => {
+      failWrite = match;
     },
   };
 }
@@ -323,5 +369,144 @@ describe('download manager', () => {
     await off.add('a');
     await off.m.onLiked('a');
     expect(await off.state('a')).toBe('none');
+  });
+
+  describe('network trouble while Wi-Fi still looks fine', () => {
+    const NET = 'Network error — check your connection';
+    const ticks = async (n = 20) => {
+      for (let i = 0; i < n; i++) await new Promise((r) => setImmediate(r));
+    };
+
+    it('a network error requeues the song and does not start the next song right away', async () => {
+      const t = await setup();
+      await t.add('a');
+      await t.add('b');
+      await t.m.enqueue(['a', 'b']);
+      await waitFor(() => t.jobs.length === 1, 'first download');
+
+      t.jobs[0].reject(new YoutubeError('network'));
+      await waitFor(async () => (await t.state('a')) === 'queued', 'requeued');
+      await ticks();
+
+      expect(t.jobs).toHaveLength(1);
+      expect(await t.state('b')).toBe('queued');
+      expect(t.m.store.getState()).toMatchObject({ active: null, paused: true, pauseReason: 'network' });
+      expect(t.pendingTimers().map((x) => x.ms)).toEqual([30_000]);
+    });
+
+    it('resumes on the next connectivity change, cancelling the timer', async () => {
+      const t = await setup();
+      await t.add('a');
+      await t.m.enqueue(['a']);
+      await waitFor(() => t.jobs.length === 1, 'first download');
+      t.jobs[0].reject(new YoutubeError('network'));
+      await waitFor(() => t.m.store.getState().pauseReason === 'network', 'backoff');
+
+      t.setConnectivity({ online: true, wifi: true });
+      await waitFor(() => t.jobs.length === 2, 'retry');
+      expect(t.jobs[1].youtubeId).toBe('a');
+      expect(t.pendingTimers()).toHaveLength(0);
+      expect(t.m.store.getState().pauseReason).toBeNull();
+    });
+
+    it('resumes when the backoff timer fires, backing off longer each time', async () => {
+      const t = await setup();
+      await t.add('a');
+      await t.m.enqueue(['a']);
+      await waitFor(() => t.jobs.length === 1, 'first download');
+      t.jobs[0].reject(new YoutubeError('network'));
+      await waitFor(() => t.pendingTimers().length === 1, 'backoff');
+
+      t.fireTimers();
+      await waitFor(() => t.jobs.length === 2, 'retry');
+      t.jobs[1].reject(new YoutubeError('network'));
+      await waitFor(() => t.pendingTimers().length === 1, 'second backoff');
+
+      expect(t.timers.map((x) => x.ms)).toEqual([30_000, 120_000]);
+    });
+
+    it('after 3 network failures in a row the song is failed', async () => {
+      const t = await setup();
+      await t.add('a');
+      await t.m.enqueue(['a']);
+      for (let i = 0; i < 3; i++) {
+        await waitFor(() => t.jobs.length === i + 1, `attempt ${i + 1}`);
+        t.jobs[i].reject(new YoutubeError('network'));
+        await waitFor(() => t.pendingTimers().length === 1, `backoff ${i + 1}`);
+        if (i < 2) {
+          expect(await t.state('a')).toBe('queued');
+          t.fireTimers();
+        }
+      }
+      expect(await getSong(t.db, 'a')).toMatchObject({ download: 'failed', downloadError: NET });
+      expect(t.timers.map((x) => x.ms)).toEqual([30_000, 120_000, 600_000]);
+    });
+
+    it('a success resets the failure count', async () => {
+      const t = await setup();
+      await t.add('a');
+      await t.m.enqueue(['a']);
+      for (let i = 0; i < 2; i++) {
+        await waitFor(() => t.jobs.length === i + 1, `attempt ${i + 1}`);
+        t.jobs[i].reject(new YoutubeError('network'));
+        await waitFor(() => t.pendingTimers().length === 1, `backoff ${i + 1}`);
+        t.fireTimers();
+      }
+      await waitFor(() => t.jobs.length === 3, 'third attempt');
+      t.jobs[2].resolve();
+      await waitFor(async () => (await t.state('a')) === 'done', 'done');
+
+      await t.add('b');
+      await t.m.enqueue(['b']);
+      await waitFor(() => t.jobs.length === 4, 'b starts');
+      t.jobs[3].reject(new YoutubeError('network'));
+      await waitFor(() => t.pendingTimers().length === 1, 'backoff');
+      expect(await t.state('b')).toBe('queued');
+      expect(t.timers.at(-1)!.ms).toBe(30_000);
+    });
+  });
+
+  it('a download started before onStartup is not reset by it', async () => {
+    const t = await setup();
+    await t.add('a');
+    await t.m.enqueue(['a']);
+    await waitFor(() => t.jobs.length === 1, 'download start');
+
+    await t.m.onStartup();
+
+    expect(await t.state('a')).toBe('downloading');
+    expect(t.files.has('audio/a.webm.part')).toBe(true);
+  });
+
+  it('a cancel just before the next song starts is not overwritten', async () => {
+    const t = await setup({ connectivity: { online: false, wifi: false } });
+    await t.add('a');
+    await setDownload(t.db, 'a', { download: 'queued' });
+    await t.m.onStartup();
+    t.onNextQueuedList(() => t.m.cancel('a'));
+
+    t.setConnectivity({ online: true, wifi: true });
+    await waitFor(() => t.m.store.getState().pauseReason === null, 'allowed');
+    for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
+
+    expect(t.yt.download).not.toHaveBeenCalled();
+    expect(await t.state('a')).toBe('none');
+  });
+
+  it('the queue keeps going when recording a failure hits a database error', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const t = await setup();
+    await t.add('a');
+    await t.m.enqueue(['a']);
+    await waitFor(() => t.jobs.length === 1, 'download start');
+    t.failNextWrite((sql, p) => sql.startsWith('UPDATE songs') && p[0] === 'failed');
+
+    t.jobs[0].reject(new YoutubeError('extraction'));
+    await waitFor(() => t.jobs.length === 2, 'retried');
+    t.jobs[1].reject(new YoutubeError('extraction'));
+    await waitFor(async () => (await t.state('a')) === 'failed', 'failed');
+    await waitFor(() => t.m.store.getState().active === null, 'idle');
+    expect(warn).toHaveBeenCalledWith('[downloads] could not record a failed download', expect.any(Error));
+    warn.mockRestore();
   });
 });

@@ -6,6 +6,10 @@
  * - Downloads run only when `canDownloadNow` allows (Wi-Fi unless mobile data is allowed)
  *   and the user hasn't paused; losing that stops the active job and re-queues it.
  * - One failing song is marked 'failed' with the error's message and the queue moves on.
+ * - A network error while the connection still looks usable (weak Wi-Fi, captive portal)
+ *   puts the song back and backs off (30 s, 2 min, then 10 min) until the timer fires or
+ *   connectivity changes, so one bad connection can't fail the whole queue. The third
+ *   network failure in a row for the same song marks it 'failed'.
  * - A song is never downloaded again once 'done': yt-dlp's failure cleanup deletes every
  *   `<id>.*`, which would take the finished file with it.
  */
@@ -52,9 +56,16 @@ export type DownloadManagerDeps = {
   player: { onSongRemoved(youtubeId: string): void; onSongUpdated(song: Song): void };
   emit(): void;
   now?: () => number;
+  /** Runs `cb` after `ms`; returns a canceller. Defaults to setTimeout. */
+  schedule?: (cb: () => void, ms: number) => () => void;
 };
 
-export type PauseReason = 'user' | 'offline' | 'cellular';
+/** 'network': backing off after a network error; retries soon by itself. */
+export type PauseReason = 'user' | 'offline' | 'cellular' | 'network';
+
+export const NETWORK_BACKOFF_MS = [30_000, 120_000, 600_000] as const;
+/** Network failures in a row after which a song is marked 'failed'. */
+export const MAX_NETWORK_FAILURES = 3;
 
 export type DownloadsState = {
   active: { youtubeId: string; percent: number } | null;
@@ -70,6 +81,12 @@ type Job = { youtubeId: string; jobId: string; stop: StopReason | null };
 
 export function createDownloadManager(deps: DownloadManagerDeps) {
   const now = deps.now ?? Date.now;
+  const schedule =
+    deps.schedule ??
+    ((cb: () => void, ms: number) => {
+      const t = setTimeout(cb, ms);
+      return () => clearTimeout(t);
+    });
   const store = create<DownloadsState>()(() => ({ active: null, queuedCount: 0, paused: false, pauseReason: null }));
 
   let job: Job | null = null;
@@ -77,13 +94,34 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
   let pumping = false;
   let again = false;
   let started = false;
-  let startup: Promise<void> | null = null;
+  let prepared: Promise<void> | null = null;
+  const networkFailures = new Map<string, number>(); // in a row, per song
+  let backoffLevel = 0; // network backoffs in a row (any song)
+  let cancelBackoff: (() => void) | null = null; // set while backing off
+  let cancelRetry: (() => void) | null = null; // set after the queue stopped on an error
 
   function pauseReason(): PauseReason | null {
     if (userPaused) return 'user';
     const c = deps.connectivity.get();
     if (!c.online) return 'offline';
-    return canDownloadNow({ ...c, cellularAllowed: deps.settings.get().downloadOnCellular }) ? null : 'cellular';
+    if (!canDownloadNow({ ...c, cellularAllowed: deps.settings.get().downloadOnCellular })) return 'cellular';
+    return cancelBackoff ? 'network' : null;
+  }
+
+  function endBackoff() {
+    cancelBackoff?.();
+    cancelBackoff = null;
+  }
+
+  function startBackoff() {
+    endBackoff();
+    const ms = NETWORK_BACKOFF_MS[Math.min(backoffLevel, NETWORK_BACKOFF_MS.length - 1)];
+    backoffLevel++;
+    cancelBackoff = schedule(() => {
+      cancelBackoff = null;
+      void refresh();
+      kick();
+    }, ms);
   }
 
   async function refresh() {
@@ -122,15 +160,22 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
   }
 
   function onConditionsChanged() {
-    if (pauseReason() !== null) stopActive('pause');
-    else kick();
+    const reason = pauseReason();
+    if (reason !== null && reason !== 'network') stopActive('pause');
+    if (reason === null) kick();
     void refresh();
+  }
+
+  /** Any connectivity event may mean the connection recovered: retry now. */
+  function onConnectivityChanged() {
+    endBackoff();
+    onConditionsChanged();
   }
 
   function ensureStarted() {
     if (started) return;
     started = true;
-    deps.connectivity.subscribe(onConditionsChanged);
+    deps.connectivity.subscribe(onConnectivityChanged);
     deps.settings.subscribe(onConditionsChanged);
     deps.yt.addProgressListener((e) => {
       if (job && !job.stop && e.jobId === job.jobId) {
@@ -154,8 +199,29 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
     void pump();
   }
 
+  /**
+   * Once, before the first download: interrupted downloads go back to the queue without
+   * their partial files. Every download waits for it, so it can never reset a live one.
+   */
+  function prepare(): Promise<void> {
+    prepared ??= (async () => {
+      ensureStarted();
+      const db = await deps.getDb();
+      const interrupted = await resetInterruptedDownloads(db);
+      interrupted.forEach((s) => deleteFiles(s.youtubeId));
+      if (interrupted.length > 0) await changed(db, interrupted.map((s) => s.youtubeId));
+    })().catch((e) => {
+      prepared = null;
+      throw e;
+    });
+    return prepared;
+  }
+
   async function pump() {
+    cancelRetry?.();
+    cancelRetry = null;
     try {
+      await prepare();
       do {
         again = false;
         while (pauseReason() === null) {
@@ -165,19 +231,27 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
         }
       } while (again);
     } catch (e) {
-      console.warn('[downloads] queue stopped', e);
+      console.warn('[downloads] queue stopped; retrying soon', e);
+      cancelRetry = schedule(() => {
+        cancelRetry = null;
+        kick();
+      }, NETWORK_BACKOFF_MS[0]);
     } finally {
       pumping = false;
     }
   }
 
   async function run(song: Song) {
-    const db = await deps.getDb();
     const id = song.youtubeId;
+    // Set before any await, so a cancel from now on reaches this job.
     const current: Job = { youtubeId: id, jobId: `${id}:${now()}`, stop: null };
     job = current;
     store.setState({ active: { youtubeId: id, percent: 0 } });
+    let db: Db | null = null;
     try {
+      db = await deps.getDb();
+      // A cancel/remove may have landed after the queue was read, before `job` was set.
+      if ((await getSong(db, id))?.download !== 'queued') return;
       await setDownload(db, id, { download: 'downloading', downloadError: null });
       await changed(db, [id]);
       if (current.stop) throw new YoutubeError('cancelled');
@@ -206,9 +280,17 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
         sizeBytes: audio.sizeBytes,
         downloadError: null,
       });
+      networkFailures.delete(id);
+      backoffLevel = 0;
       await changed(db, [id]);
     } catch (e) {
-      await failed(db, current, e);
+      try {
+        await failed(await deps.getDb(), current, e);
+      } catch (e2) {
+        // Couldn't record the outcome: don't leave the row 'downloading'; it gets another go.
+        console.warn('[downloads] could not record a failed download', e2);
+        if (db) await setDownload(db, id, { download: 'queued' }).catch(() => {});
+      }
     } finally {
       job = null;
       store.setState({ active: null });
@@ -222,9 +304,20 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
     if (!still || current.stop === 'remove') return; // whoever removed it updated the row
     if (current.stop === 'cancel') {
       await setDownload(db, id, { download: 'none', downloadError: null });
-    } else if (current.stop === 'pause' || (e instanceof YoutubeError && e.kind === 'network' && pauseReason() !== null)) {
-      // Paused, or the connection dropped mid-download: it waits for the next chance.
+    } else if (current.stop === 'pause' || (isNetwork(e) && pauseReason() !== null)) {
+      // Paused, or the connection visibly dropped: it waits for the next chance.
       await setDownload(db, id, { download: 'queued', downloadError: null });
+    } else if (isNetwork(e)) {
+      // The connection looks fine but isn't: back off instead of failing the whole queue.
+      const n = (networkFailures.get(id) ?? 0) + 1;
+      startBackoff();
+      if (n >= MAX_NETWORK_FAILURES) {
+        networkFailures.delete(id);
+        await setDownload(db, id, { download: 'failed', downloadError: (e as Error).message });
+      } else {
+        networkFailures.set(id, n);
+        await setDownload(db, id, { download: 'queued', downloadError: null });
+      }
     } else {
       const message = e instanceof Error ? e.message : 'Download failed';
       await setDownload(db, id, { download: 'failed', downloadError: message });
@@ -232,12 +325,15 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
     await changed(db, [id]);
   }
 
+  const isNetwork = (e: unknown) => e instanceof YoutubeError && e.kind === 'network';
+
   const api = {
     store,
 
     /** Queues songs that aren't on the phone yet (also retries failed ones). */
     async enqueue(youtubeIds: string[]) {
       ensureStarted();
+      youtubeIds.forEach((id) => networkFailures.delete(id)); // a manual retry starts afresh
       const db = await deps.getDb();
       const queued: string[] = [];
       for (const id of youtubeIds) {
@@ -290,26 +386,22 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
       void refresh();
     },
 
+    /** Lifts a user pause, and retries now after a network backoff. */
     resume() {
       userPaused = false;
+      endBackoff();
       void refresh();
       kick();
     },
 
     /** Once per launch: interrupted downloads go back to the queue without their partial files. */
-    onStartup(): Promise<void> {
-      startup ??= (async () => {
-        ensureStarted();
-        const db = await deps.getDb();
-        const interrupted = await resetInterruptedDownloads(db);
-        interrupted.forEach((s) => deleteFiles(s.youtubeId));
-        if (interrupted.length > 0) await changed(db, interrupted.map((s) => s.youtubeId));
-        api.resume();
-      })().catch((e) => {
-        startup = null;
+    async onStartup(): Promise<void> {
+      try {
+        await prepare();
+      } catch (e) {
         console.warn('[downloads] startup failed', e);
-      });
-      return startup;
+      }
+      api.resume();
     },
 
     /** Call after the user likes a song: queues it when auto-download of liked songs is on. */

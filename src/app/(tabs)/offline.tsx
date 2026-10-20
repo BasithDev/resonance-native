@@ -23,6 +23,7 @@ const PAUSE_TEXT: Record<PauseReason, string> = {
   user: 'Paused',
   offline: 'Waiting for internet',
   cellular: 'Paused on mobile data · allow it in Settings',
+  network: 'Connection trouble · retrying soon',
 };
 
 function StorageCard({ count, usedBytes, freeBytes }: { count: number; usedBytes: number; freeBytes: number | null }) {
@@ -51,8 +52,8 @@ function DownloadCard({ activeSong }: { activeSong: Song | null }) {
   const waiting = queuedCount > 0 ? `${queuedCount} waiting` : null;
   const title = active ? `Downloading · ${Math.round(active.percent)}%` : paused && pauseReason ? PAUSE_TEXT[pauseReason] : 'Starting downloads';
   const subtitle = [active ? activeSong?.title : null, waiting].filter(Boolean).join(' · ');
-  // Only a user pause can be resumed from here; network pauses lift on their own.
-  const action = pauseReason === 'user' ? 'Resume' : pauseReason === null ? 'Pause' : null;
+  // Offline / mobile-data pauses lift on their own; a network backoff can be retried now.
+  const action = pauseReason === 'user' ? 'Resume' : pauseReason === 'network' ? 'Retry now' : pauseReason === null ? 'Pause' : null;
   return (
     <View style={[styles.card, styles.downloadCard]}>
       <MaterialIcons name={paused ? 'pause-circle-outline' : 'downloading'} size={26} color={colors.mint} />
