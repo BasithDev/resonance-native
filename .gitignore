@@ -43,5 +43,8 @@ example
 /android
 
 # Resonance
+modules/*/android/build/
+modules/*/android/.gradle/
+modules/*/android/.cxx/
 .superpowers/
 *.keystore
