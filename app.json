@@ -31,7 +31,8 @@
           "imageWidth": 76
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "./modules/ytdlp/app.plugin.js"
     ],
     "experiments": {
       "typedRoutes": true,
