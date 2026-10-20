@@ -196,6 +196,69 @@ describe('player store', () => {
     expect(t.lastLoad()[0]).toMatchObject({ uri: 'https://stream/b?v=1' });
   });
 
+  it('play after stopping on a failure reloads the song, so a fresh failure is noticed', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a', 'none'), song('b', 'none')], 0);
+    await flush();
+    t.emit({ playing: true, buffering: false, positionSec: 20, durationSec: 100 });
+    t.net.online = false;
+    t.emit({ playing: false, error: 'Unable to connect' });
+    await flush();
+    expect(t.engine.load).toHaveBeenCalledTimes(1); // stopped: nothing playable offline
+
+    t.net.online = true;
+    t.store.getState().togglePlay();
+    await flush();
+    expect(t.engine.play).not.toHaveBeenCalled();
+    expect(t.engine.load).toHaveBeenCalledTimes(2);
+    expect(t.resolveStream).toHaveBeenCalledTimes(3); // a, prefetched b, then a afresh
+    const [src, autoplay, startSec] = t.lastLoad();
+    expect(src).toMatchObject({ uri: 'https://stream/a?v=3' });
+    expect(autoplay).toBe(true);
+    expect(startSec).toBe(20);
+
+    // The reload cleared the error, so a new failure is handled (re-resolve once).
+    t.emit({ error: 'Source error (403)' });
+    await flush();
+    expect(t.resolveStream).toHaveBeenCalledTimes(4);
+    expect(t.engine.load).toHaveBeenCalledTimes(3);
+  });
+
+  it('togglePlay while buffering pauses', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a')], 0);
+    await flush();
+    t.emit({ playing: false, buffering: true });
+    t.store.getState().togglePlay();
+    expect(t.engine.pause).toHaveBeenCalledTimes(1);
+    expect(t.engine.play).not.toHaveBeenCalled();
+  });
+
+  it('onSongUpdated swaps the queued snapshot without reloading the playing song', async () => {
+    const t = setup({ online: false });
+    t.store.getState().playSongs([song('a'), song('b', 'none'), song('c')], 0);
+    await flush();
+    t.store.getState().onSongUpdated(song('b')); // b finished downloading
+    t.store.getState().onSongUpdated({ ...song('a'), title: 'Renamed a' }); // the playing song
+    expect(t.engine.load).toHaveBeenCalledTimes(1);
+    const q = t.store.getState().queue!;
+    expect(q.items.map((s) => s.download)).toEqual(['done', 'done', 'done']);
+    expect(q.original.find((s) => s.youtubeId === 'b')!.download).toBe('done');
+    expect(q.items[0].title).toBe('Renamed a');
+
+    t.store.getState().next();
+    await flush();
+    expect(currentId(t)).toBe('b');
+    expect(t.lastLoad()[0]).toMatchObject({ uri: 'file:///data/user/0/app/files/audio/b.webm' });
+
+    // A deleted file makes the song stream-only again (greyed and skipped offline).
+    t.store.getState().onSongUpdated(song('c', 'none'));
+    t.emit({ ended: true, playing: false });
+    await flush();
+    expect(currentId(t)).toBe('b');
+    expect(t.engine.load).toHaveBeenCalledTimes(2);
+  });
+
   it("remote 'next' from engine.onRemote calls next()", async () => {
     const t = setup();
     t.store.getState().playSongs([song('a'), song('b')], 0);

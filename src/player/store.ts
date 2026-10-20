@@ -40,6 +40,11 @@ export type PlayerState = {
   moveInQueue(from: number, to: number): void;
   /** The song left the library (download manager): drop it and skip it if playing. */
   onSongRemoved(youtubeId: string): void;
+  /**
+   * The song's library row changed (e.g. download finished or its file was deleted):
+   * swap its snapshot in the queue. The playing song is not reloaded; its next load uses it.
+   */
+  onSongUpdated(song: Song): void;
 };
 
 export type PlayerDeps = {
@@ -173,6 +178,13 @@ export function createPlayerStore(deps: PlayerDeps) {
         void loadCurrent(true); // nothing loaded (its stream failed to resolve): try again
         return;
       }
+      failures = 0; // the user asked again: allow skipping through the queue again
+      if (get().status.error) {
+        // The engine is still in its error state: a plain play() would leave that error set,
+        // so a repeat failure would never be noticed. Load the song afresh instead.
+        void loadCurrent(true, { startSec: lastPosition || undefined, fresh: source.kind === 'http' });
+        return;
+      }
       const hit = urls.get(source.youtubeId);
       if (source.kind === 'http' && (!hit || now() - hit.at >= STREAM_URL_TTL_MS)) {
         void loadCurrent(true, { startSec: lastPosition || undefined, fresh: true });
@@ -232,7 +244,9 @@ export function createPlayerStore(deps: PlayerDeps) {
       },
 
       togglePlay() {
-        if (get().status.playing) deps.engine.pause();
+        const { playing, buffering, error } = get().status;
+        // Buffering counts as playing: tapping during a stall means pause.
+        if ((playing || buffering) && !error) deps.engine.pause();
         else resume();
       },
 
@@ -279,6 +293,13 @@ export function createPlayerStore(deps: PlayerDeps) {
       },
 
       moveInQueue: (from, to) => edit((q) => Q.move(q, from, to)),
+
+      onSongUpdated(song) {
+        const q = get().queue;
+        if (!q || !q.items.some((s) => s.youtubeId === song.youtubeId)) return;
+        const swap = (list: Song[]) => list.map((s) => (s.youtubeId === song.youtubeId ? song : s));
+        edit((x) => ({ ...x, items: swap(x.items), original: swap(x.original) }));
+      },
 
       onSongRemoved(youtubeId) {
         urls.delete(youtubeId);
