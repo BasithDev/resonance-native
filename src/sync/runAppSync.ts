@@ -2,9 +2,10 @@ import { getDb } from '../db/instance';
 import type { Db } from '../db/types';
 import { downloads } from '../downloads/manager';
 import { libraryEvents } from '../library/events';
-import { listSongs } from '../library/repo';
+import { getPlaylistSongs, listSongs } from '../library/repo';
 import type { Song } from '../library/types';
 import { usePlayer } from '../player/store';
+import { settingsReady, useSettings } from '../settings/store';
 import * as listens from '../stats/listens';
 import { runSync } from './client';
 import type { SyncPayload } from './qr';
@@ -24,6 +25,10 @@ export type AppSyncDeps = {
   /** Drops a removed song from the play queue. */
   onSongRemoved: (youtubeId: string) => void;
   emit: () => void;
+  /** Whether liked songs are auto-downloaded (setting). */
+  autoDownloadLiked: () => boolean | Promise<boolean>;
+  /** Queues downloads; songs already on the phone or queued are skipped. */
+  enqueueDownloads: (youtubeIds: string[]) => Promise<void>;
   now?: () => number;
 };
 
@@ -59,6 +64,15 @@ export function createAppSync(deps: AppSyncDeps) {
       }
       if (summary !== null || removed.length > 0) deps.emit();
     }
+    // Songs liked on the web arrive without a download; queue them like a local ♥ would.
+    try {
+      if (await deps.autoDownloadLiked()) {
+        const liked = await getPlaylistSongs(db, 'liked');
+        if (liked.length > 0) await deps.enqueueDownloads(liked.map((s) => s.youtubeId));
+      }
+    } catch (e) {
+      console.warn('[sync] queueing liked downloads failed', e);
+    }
     const newSongs = (await listSongs(db)).filter((s) => !before.has(s.youtubeId));
     return { summary, newSongs };
   };
@@ -69,4 +83,9 @@ export const runAppSync = createAppSync({
   forgetSongs: (ids) => downloads.forgetSongs(ids),
   onSongRemoved: (id) => usePlayer.getState().onSongRemoved(id),
   emit: () => libraryEvents.emit(),
+  autoDownloadLiked: async () => {
+    await settingsReady();
+    return useSettings.getState().autoDownloadLiked;
+  },
+  enqueueDownloads: (ids) => downloads.enqueue(ids),
 });

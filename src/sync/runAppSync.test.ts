@@ -1,5 +1,13 @@
 const mockForgetSongs = jest.fn(async (_ids: string[]) => {});
-jest.mock('../downloads/manager', () => ({ downloads: { forgetSongs: (ids: string[]) => mockForgetSongs(ids) } }));
+const mockEnqueue = jest.fn(async (_ids: string[]) => {});
+jest.mock('../downloads/manager', () => ({
+  downloads: { forgetSongs: (ids: string[]) => mockForgetSongs(ids), enqueue: (ids: string[]) => mockEnqueue(ids) },
+}));
+const mockSettings = { autoDownloadLiked: true };
+jest.mock('../settings/store', () => ({
+  useSettings: { getState: () => mockSettings },
+  settingsReady: () => Promise.resolve(),
+}));
 const mockOnSongRemoved = jest.fn();
 jest.mock('../player/store', () => ({ usePlayer: { getState: () => ({ onSongRemoved: mockOnSongRemoved }) } }));
 let mockDb: Db;
@@ -29,6 +37,8 @@ let db: Db;
 let forgotten: string[][];
 let removedFromPlayer: string[];
 let emits: number;
+let enqueued: string[][];
+let autoDownloadLiked: boolean;
 let body: any;
 const fakeFetch = (status: number, res: unknown) =>
   jest.fn(async (url: string, init?: RequestInit) => {
@@ -43,6 +53,8 @@ const mk = (f: typeof fetch) =>
     forgetSongs: async (ids) => { forgotten.push(ids); },
     onSongRemoved: (id) => { removedFromPlayer.push(id); },
     emit: () => { emits++; },
+    autoDownloadLiked: () => autoDownloadLiked,
+    enqueueDownloads: async (ids) => { enqueued.push(ids); },
     now: () => 1000,
   });
 
@@ -52,6 +64,8 @@ beforeEach(async () => {
   forgotten = [];
   removedFromPlayer = [];
   emits = 0;
+  enqueued = [];
+  autoDownloadLiked = true;
   body = undefined;
 });
 
@@ -96,6 +110,8 @@ describe('createAppSync', () => {
       forgetSongs: async (ids) => { forgotten.push(ids); },
       onSongRemoved: (id) => { removedFromPlayer.push(id); },
       emit: () => { emits++; },
+      autoDownloadLiked: () => true,
+      enqueueDownloads: async (ids) => { enqueued.push(ids); },
     });
     await listens.log(db, 'gone', 5, 1);
     await expect(sync(payload)).rejects.toThrow('disk I/O');
@@ -109,7 +125,12 @@ describe('createAppSync', () => {
     await addSong(db, { youtubeId: 'gone', title: 'gone', channel: null, durationSec: 1, thumbnailUrl: 'x' });
     const onEmit = jest.fn();
     const unsub = libraryEvents.subscribe(onEmit);
-    const f = fakeFetch(200, { serverTime: 5000, songs: [ssong('n1')], playlists: [], summary });
+    const f = fakeFetch(200, {
+      serverTime: 5000,
+      songs: [ssong('n1')],
+      playlists: [{ id: 'liked', name: 'Liked', kind: 'liked', updatedAt: 9, songs: ['n1'] }],
+      summary,
+    });
     const orig = globalThis.fetch;
     globalThis.fetch = f;
     try {
@@ -122,5 +143,45 @@ describe('createAppSync', () => {
     expect(mockForgetSongs).toHaveBeenCalledWith(['gone']);
     expect(mockOnSongRemoved).toHaveBeenCalledWith('gone');
     expect(onEmit).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue).toHaveBeenCalledWith(['n1']);
+  });
+
+  const likedRes = (): SyncResponse => ({
+    serverTime: 5000,
+    songs: [ssong('mine'), ssong('webLiked'), ssong('other')],
+    playlists: [{ id: 'liked', name: 'Liked', kind: 'liked', updatedAt: 9, songs: ['webLiked', 'mine'] }],
+    summary,
+  });
+
+  it('after a successful sync, queues every Liked song for download when auto-download of liked songs is on', async () => {
+    await mk(fakeFetch(200, likedRes()))(payload);
+    expect(enqueued).toEqual([['webLiked', 'mine']]);
+  });
+
+  it('does not queue Liked songs when auto-download of liked songs is off', async () => {
+    autoDownloadLiked = false;
+    await mk(fakeFetch(200, likedRes()))(payload);
+    expect(enqueued).toEqual([]);
+  });
+
+  it('does not queue anything when the sync fails', async () => {
+    await expect(mk(fakeFetch(401, {}))(payload)).rejects.toMatchObject({ kind: 'expired' });
+    expect(enqueued).toEqual([]);
+  });
+
+  it('a failing enqueue does not fail the sync', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const sync = createAppSync({
+      getDb: async () => db,
+      fetch: fakeFetch(200, likedRes()),
+      forgetSongs: async () => {},
+      onSongRemoved: () => {},
+      emit: () => {},
+      autoDownloadLiked: () => true,
+      enqueueDownloads: async () => { throw new Error('boom'); },
+    });
+    await expect(sync(payload)).resolves.toMatchObject({ summary });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
