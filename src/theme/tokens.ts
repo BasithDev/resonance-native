@@ -21,3 +21,6 @@ export const font = {
   semibold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
 } as const;
+
+/** Fixed heights the floating mini-player is positioned against. */
+export const layout = { tabBar: 56, miniPlayer: 56 } as const;

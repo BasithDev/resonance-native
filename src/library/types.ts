@@ -1,10 +1,5 @@
-export type YtTrack = {
-  youtubeId: string;
-  title: string;
-  channel: string | null;
-  durationSec: number | null;
-  thumbnailUrl: string;
-};
+// One definition, owned by the yt-dlp module (type-only: no native import at runtime).
+export type { YtTrack } from '../../modules/ytdlp';
 
 export type DownloadState = 'none' | 'queued' | 'downloading' | 'done' | 'failed';
 

@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import type { ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, font } from '@/theme/tokens';
+import { colors, font, layout } from '@/theme/tokens';
 
 type IconName = React.ComponentProps<typeof MaterialIcons>['name'];
 
@@ -14,12 +15,19 @@ const tab = (title: string, icon: IconName) => ({
 });
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: colors.bg },
-        tabBarStyle: { backgroundColor: colors.s1, borderTopWidth: 0 },
+        // Fixed height: the floating mini-player (root layout) sits right above it.
+        tabBarStyle: {
+          backgroundColor: colors.s1,
+          borderTopWidth: 0,
+          height: layout.tabBar + insets.bottom,
+          paddingBottom: insets.bottom,
+        },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: { fontFamily: font.medium, fontSize: 12 },
