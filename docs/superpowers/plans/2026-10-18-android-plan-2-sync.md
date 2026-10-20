@@ -36,7 +36,7 @@
 
 ```
 GET  /api/sync/pair            -> 200 { code, expiresAt: number(ms), urls: string[] }
-GET  /api/sync/status?code=    -> 200 { state: 'waiting' | 'done' | 'expired', summary?: SyncSummary }
+GET  /api/sync/status?code=    -> 200 { state: 'waiting' | 'done' | 'expired', summary?: SyncSummary }   // + claimed?: true while 'waiting' once a phone has claimed the code (added in final fix wave)
 POST /api/sync                 header X-Sync-Code: <code>
      body SyncRequest          -> 200 SyncResponse | 401 { error:{message:'Sync code expired or already used'} } | 422
 
