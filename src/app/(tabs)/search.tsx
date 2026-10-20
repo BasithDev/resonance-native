@@ -108,6 +108,7 @@ export default function SearchScreen() {
   const [nameModal, setNameModal] = useState(false);
   const [playlistName, setPlaylistName] = useState('New playlist');
   const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const requestId = useRef(0);
 
   const refreshLibrary = useCallback(async () => {
@@ -129,7 +130,10 @@ export default function SearchScreen() {
     return songs.filter((s) => s.title.toLowerCase().includes(q) || (s.channel ?? '').toLowerCase().includes(q));
   }, [parsed, songs]);
 
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const runRemote = useCallback(async () => {
+    if (debounce.current) clearTimeout(debounce.current);
     const id = ++requestId.current;
     const input = parseInput(text);
     if (!online || (input.kind === 'query' && input.q === '')) {
@@ -162,6 +166,7 @@ export default function SearchScreen() {
       return;
     }
     const t = setTimeout(() => void runRemote(), DEBOUNCE_MS);
+    debounce.current = t;
     return () => clearTimeout(t);
   }, [text, runRemote]);
 
@@ -172,26 +177,35 @@ export default function SearchScreen() {
     return db;
   }, []);
 
+  const fail = (e: unknown) => setSaveError(e instanceof Error ? e.message : 'Could not save');
+
   const saveOne = (t: YtTrack) => {
-    save([t]).catch(() => {});
+    setSaveError(null);
+    save([t]).catch(fail);
   };
 
   const addAll = async (tracks: YtTrack[]) => {
+    setSaveError(null);
     setBusy(true);
     try {
       await save(tracks);
+    } catch (e) {
+      fail(e);
     } finally {
       setBusy(false);
     }
   };
 
   const addAllToNewPlaylist = async (tracks: YtTrack[], name: string) => {
+    setSaveError(null);
     setBusy(true);
     try {
       const db = await save(tracks);
       const pl = await repo.createPlaylist(db, name.trim() || 'New playlist');
       for (const t of tracks) await repo.addToPlaylist(db, pl.id, t.youtubeId);
       libraryEvents.emit();
+    } catch (e) {
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -205,8 +219,11 @@ export default function SearchScreen() {
 
   const remoteTracks = remote.status === 'done' ? remote.tracks : [];
   const isPlaylist = remote.status === 'done' && remote.isPlaylist;
-  // Don't repeat library matches in the YouTube section.
-  const shownRemote = isPlaylist ? remoteTracks : remoteTracks.filter((t) => !libraryMatches.some((s) => s.youtubeId === t.youtubeId));
+  // Tracks stay in the YouTube section (with a check once saved); drop them from the
+  // library section so saving never makes a row jump between sections.
+  const shownRemote = remoteTracks;
+  const remoteIds = new Set(remoteTracks.map((t) => t.youtubeId));
+  const libraryShown = remote.status === 'done' ? libraryMatches.filter((s) => !remoteIds.has(s.youtubeId)) : libraryMatches;
 
   type Item =
     | { key: string; type: 'label'; text: string }
@@ -216,12 +233,12 @@ export default function SearchScreen() {
     | { key: string; type: 'status'; node: React.ReactNode };
 
   const items: Item[] = [];
-  if (libraryMatches.length > 0) {
+  if (libraryShown.length > 0) {
     items.push({ key: 'l-label', type: 'label', text: 'In your library' });
-    libraryMatches.forEach((song, index) => items.push({ key: `l-${song.youtubeId}`, type: 'lib', song, index }));
+    libraryShown.forEach((song, index) => items.push({ key: `l-${song.youtubeId}`, type: 'lib', song, index }));
   }
-  if (!online && text.trim() !== '') {
-    items.push({ key: 'offline', type: 'status', node: <Text style={styles.hint}>Search needs internet</Text> });
+  if (!online) {
+    // The offline hint sits under the input.
   } else if (remote.status === 'loading') {
     items.push({ key: 'loading', type: 'status', node: <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} /> });
   } else if (remote.status === 'error') {
@@ -234,7 +251,7 @@ export default function SearchScreen() {
       items.push({ key: 'y-label', type: 'label', text: isPlaylist ? `${remoteTracks.length} tracks` : 'On YouTube' });
     }
     shownRemote.forEach((track, index) => items.push({ key: `y-${track.youtubeId}-${index}`, type: 'yt', track, index }));
-    if (shownRemote.length === 0 && libraryMatches.length === 0) {
+    if (shownRemote.length === 0 && libraryShown.length === 0) {
       items.push({ key: 'empty', type: 'status', node: <Text style={styles.hint}>No results</Text> });
     }
   }
@@ -263,6 +280,7 @@ export default function SearchScreen() {
         ) : null}
       </View>
       {!online ? <Text style={styles.offlineHint}>Search needs internet</Text> : null}
+      {saveError ? <Text style={[styles.offlineHint, { color: colors.primaryStrong }]}>{saveError}</Text> : null}
 
       <FlatList
         data={items}
@@ -282,7 +300,7 @@ export default function SearchScreen() {
                   subtitle={[item.song.channel, fmtDuration(item.song.durationSec)].filter(Boolean).join(' · ')}
                   thumb={item.song.thumbnailUrl}
                   downloaded={item.song.download === 'done'}
-                  onPlay={() => playSongs(libraryMatches, item.index)}
+                  onPlay={() => playSongs(libraryShown, item.index)}
                 />
               );
             case 'yt':
