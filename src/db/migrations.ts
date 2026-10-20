@@ -52,6 +52,9 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX listens_played_at ON listens(played_at);
   `,
+  `
+  CREATE INDEX listens_youtube_id ON listens(youtube_id);
+  `,
 ];
 
 export async function runMigrations(db: Db): Promise<void> {
