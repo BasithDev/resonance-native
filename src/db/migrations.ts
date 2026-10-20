@@ -41,6 +41,17 @@ export const MIGRATIONS: string[] = [
   CREATE TABLE kv (key TEXT PRIMARY KEY NOT NULL, value TEXT);
   INSERT INTO playlists (id, name, kind, created_at, updated_at) VALUES ('liked', 'Liked', 'liked', 0, 0);
   `,
+  `
+  CREATE TABLE listens (
+    id INTEGER PRIMARY KEY,
+    youtube_id TEXT,
+    duration_sec INTEGER,
+    played_at INTEGER,
+    synced INTEGER DEFAULT 0,
+    play_start INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX listens_played_at ON listens(played_at);
+  `,
 ];
 
 export async function runMigrations(db: Db): Promise<void> {

@@ -25,7 +25,7 @@ const song = (id: string, download: Song['download'] = 'done'): Song => ({
   downloadError: null,
 });
 
-function setup(opts: { online?: boolean; shuffleSongs?: Song[] } = {}) {
+function setup(opts: { online?: boolean; shuffleSongs?: Song[]; onListen?: (id: string, sec: number, at: number, playStart: boolean) => void } = {}) {
   let status: EngineStatus = {
     playing: false, buffering: false, positionSec: 0, durationSec: 0, ended: false, error: null,
   };
@@ -54,6 +54,7 @@ function setup(opts: { online?: boolean; shuffleSongs?: Song[] } = {}) {
   const clock = { now: 1_000_000 };
   const store = createPlayerStore({ engine, resolveStream, isOnline: () => net.online, now: () => clock.now,
     loadSuperShuffle: async () => opts.shuffleSongs ?? [],
+    onListen: opts.onListen,
   });
   return {
     store,
@@ -337,6 +338,32 @@ describe('player store', () => {
     t.store.getState().onSongRemoved('a');
     expect(t.store.getState().queue).toBeNull();
     expect(t.engine.pause).toHaveBeenCalled();
+  });
+
+  it('store logs a chunk after 10 s of playing and none while paused', async () => {
+    const onListen = jest.fn();
+    const t = setup({ onListen });
+    t.store.getState().playSongs([song('a')], 0);
+    await flush();
+    const tick = (ms: number, playing: boolean) => {
+      t.clock.now += ms;
+      t.emit({ playing, buffering: false, positionSec: t.clock.now / 1000 });
+    };
+    tick(0, true);
+    for (let i = 0; i < 19; i++) tick(500, true); // 9.5 s
+    expect(onListen).not.toHaveBeenCalled();
+    tick(500, true); // 10 s
+    expect(onListen).toHaveBeenCalledTimes(1);
+    expect(onListen).toHaveBeenCalledWith('a', 10, t.clock.now, true);
+    onListen.mockClear();
+    tick(500, false); // paused: a long pause adds nothing
+    tick(60_000, false);
+    for (let i = 0; i < 10; i++) tick(500, false);
+    expect(onListen).not.toHaveBeenCalled();
+    tick(500, true); // resumed: time counts from the next tick
+    for (let i = 0; i < 20; i++) tick(500, true);
+    expect(onListen).toHaveBeenCalledTimes(1);
+    expect(onListen).toHaveBeenCalledWith('a', 10, t.clock.now, false); // same play: not a new start
   });
 });
 
