@@ -2,8 +2,8 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -39,12 +39,23 @@ function ScanLine() {
 
 function Scanner({ notice, onScanned }: { notice: string | null; onScanned: (text: string) => void }) {
   const insets = useSafeAreaInsets();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, getPermission] = useCameraPermissions();
+  const ask = useCallback(() => {
+    requestPermission().catch((e) => console.warn('[sync] camera permission request failed', e));
+  }, [requestPermission]);
 
   // The camera opens straight away: ask the first time without an extra tap.
   useEffect(() => {
-    if (permission?.status === 'undetermined') void requestPermission();
-  }, [permission?.status, requestPermission]);
+    if (permission?.status === 'undetermined') ask();
+  }, [permission?.status, ask]);
+
+  // Access may have been granted in the system settings while the app was in the background.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') getPermission().catch((e) => console.warn('[sync] camera permission check failed', e));
+    });
+    return () => sub.remove();
+  }, [getPermission]);
 
   const header = (
     <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
@@ -63,7 +74,7 @@ function Scanner({ notice, onScanned }: { notice: string | null; onScanned: (tex
             <MaterialIcons name="photo-camera" size={40} color={colors.muted} />
             <Text style={styles.body}>Resonance needs the camera to scan the sync QR code on your computer.</Text>
             <PressableScale
-              onPress={() => (permission.canAskAgain ? void requestPermission() : void Linking.openSettings())}
+              onPress={() => (permission.canAskAgain ? ask() : void Linking.openSettings())}
               style={[styles.btn, styles.btnPrimary]}
               accessibilityRole="button">
               <Text style={[styles.btnText, { color: colors.onPrimary }]}>Grant camera access</Text>

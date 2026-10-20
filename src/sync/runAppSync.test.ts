@@ -1,5 +1,7 @@
-const mockRemoveDownload = jest.fn(async (_id: string) => {});
-jest.mock('../downloads/manager', () => ({ downloads: { removeDownload: (id: string) => mockRemoveDownload(id) } }));
+const mockForgetSongs = jest.fn(async (_ids: string[]) => {});
+jest.mock('../downloads/manager', () => ({ downloads: { forgetSongs: (ids: string[]) => mockForgetSongs(ids) } }));
+const mockOnSongRemoved = jest.fn();
+jest.mock('../player/store', () => ({ usePlayer: { getState: () => ({ onSongRemoved: mockOnSongRemoved }) } }));
 let mockDb: Db;
 jest.mock('../db/instance', () => ({ getDb: () => Promise.resolve(mockDb) }));
 
@@ -24,7 +26,8 @@ const ssong = (id: string, durationSec: number | null = 60): SyncSong => ({
 });
 
 let db: Db;
-let removed: string[];
+let forgotten: string[][];
+let removedFromPlayer: string[];
 let emits: number;
 let body: any;
 const fakeFetch = (status: number, res: unknown) =>
@@ -37,7 +40,8 @@ const mk = (f: typeof fetch) =>
   createAppSync({
     getDb: async () => db,
     fetch: f,
-    removeDownload: async (id) => { removed.push(id); },
+    forgetSongs: async (ids) => { forgotten.push(ids); },
+    onSongRemoved: (id) => { removedFromPlayer.push(id); },
     emit: () => { emits++; },
     now: () => 1000,
   });
@@ -45,15 +49,17 @@ const mk = (f: typeof fetch) =>
 beforeEach(async () => {
   db = createTestDb();
   await migrate(db);
-  removed = [];
+  forgotten = [];
+  removedFromPlayer = [];
   emits = 0;
   body = undefined;
 });
 
 describe('createAppSync', () => {
-  it('sends unsynced listens, marks them synced, removes dropped downloads, emits once and reports new songs', async () => {
+  it('sends unsynced listens, marks them synced, drops removed songs from downloads and the player, emits once and reports new songs', async () => {
     await addSong(db, { youtubeId: 'keep', title: 'keep', channel: null, durationSec: 1, thumbnailUrl: 'x' });
     await addSong(db, { youtubeId: 'gone', title: 'gone', channel: null, durationSec: 1, thumbnailUrl: 'x' });
+    await addSong(db, { youtubeId: 'gone2', title: 'gone2', channel: null, durationSec: 1, thumbnailUrl: 'x' });
     await listens.log(db, 'keep', 30, 500);
     const res: SyncResponse = {
       serverTime: 5000, songs: [ssong('keep'), ssong('n1'), ssong('n2', null)], playlists: [], summary,
@@ -63,7 +69,8 @@ describe('createAppSync', () => {
 
     expect(body.listens).toEqual([{ youtubeId: 'keep', durationSec: 30, playedAt: 500 }]);
     expect(await listens.unsynced(db)).toEqual([]);
-    expect(removed).toEqual(['gone']);
+    expect(forgotten).toEqual([['gone', 'gone2']]);
+    expect(removedFromPlayer).toEqual(['gone', 'gone2']);
     expect(emits).toBe(1);
     expect(out.summary).toEqual(summary);
     expect(out.newSongs.map((s) => s.youtubeId).sort()).toEqual(['n1', 'n2']);
@@ -77,7 +84,27 @@ describe('createAppSync', () => {
     expect(emits).toBe(0);
   });
 
-  it('runAppSync uses the app database, the download manager and library events', async () => {
+  it('cleans up removed songs even when a later step fails', async () => {
+    await addSong(db, { youtubeId: 'gone', title: 'gone', channel: null, durationSec: 1, thumbnailUrl: 'x' });
+    const res: SyncResponse = { serverTime: 5000, songs: [], playlists: [], summary };
+    const sync = createAppSync({
+      getDb: async () => ({ ...db, run: async (sql: string, p?: unknown[]) => {
+        if (sql.includes('UPDATE listens')) throw new Error('disk I/O');
+        return db.run(sql, p);
+      } }) as Db,
+      fetch: fakeFetch(200, res),
+      forgetSongs: async (ids) => { forgotten.push(ids); },
+      onSongRemoved: (id) => { removedFromPlayer.push(id); },
+      emit: () => { emits++; },
+    });
+    await listens.log(db, 'gone', 5, 1);
+    await expect(sync(payload)).rejects.toThrow('disk I/O');
+    expect(forgotten).toEqual([['gone']]);
+    expect(removedFromPlayer).toEqual(['gone']);
+    expect(emits).toBe(1);
+  });
+
+  it('runAppSync uses the app database, the download manager, the player and library events', async () => {
     mockDb = db;
     await addSong(db, { youtubeId: 'gone', title: 'gone', channel: null, durationSec: 1, thumbnailUrl: 'x' });
     const onEmit = jest.fn();
@@ -92,7 +119,8 @@ describe('createAppSync', () => {
       globalThis.fetch = orig;
       unsub();
     }
-    expect(mockRemoveDownload).toHaveBeenCalledWith('gone');
+    expect(mockForgetSongs).toHaveBeenCalledWith(['gone']);
+    expect(mockOnSongRemoved).toHaveBeenCalledWith('gone');
     expect(onEmit).toHaveBeenCalledTimes(1);
   });
 });

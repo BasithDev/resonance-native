@@ -8,7 +8,7 @@ jest.mock('../settings/store', () => ({ useSettings: { getState: () => ({}), sub
 
 import { createTestDb } from '../../test/sqliteAdapter';
 import type { Db } from '../db/types';
-import { addSong, getSong, migrate, setDownload } from '../library/repo';
+import { addSong, getSong, migrate, removeSong, setDownload } from '../library/repo';
 import type { Song } from '../library/types';
 import type { Connectivity } from '../net/connectivity';
 import { YoutubeError } from '../youtube/client';
@@ -261,6 +261,31 @@ describe('download manager', () => {
     await waitFor(() => t.m.store.getState().active === null, 'idle');
     expect(await getSong(t.db, 'a')).toBeNull();
     expect(t.fs.downloadArt).not.toHaveBeenCalled();
+  });
+
+  it('forgetSongs (rows already removed by a sync) cancels the download and deletes files without per-song events', async () => {
+    const t = await setup();
+    await t.add('a');
+    await t.add('b');
+    t.files.add('audio/b.webm');
+    t.files.add('art/b.jpg');
+    await t.m.enqueue(['a']);
+    await waitFor(() => t.jobs.length === 1, 'download start');
+    const { jobId } = t.jobs[0];
+    await removeSong(t.db, 'a');
+    await removeSong(t.db, 'b');
+    t.emit.mockClear();
+    t.player.onSongUpdated.mockClear();
+
+    await t.m.forgetSongs(['a', 'b']);
+
+    expect(t.yt.cancel).toHaveBeenCalledWith(jobId);
+    expect(t.files.size).toBe(0);
+    expect(t.emit).not.toHaveBeenCalled();
+    expect(t.player.onSongRemoved).not.toHaveBeenCalled();
+    expect(t.player.onSongUpdated).not.toHaveBeenCalled();
+    await waitFor(() => t.m.store.getState().active === null, 'idle');
+    expect(t.files.size).toBe(0);
   });
 
   it('a download that finishes after its cancel was lost is discarded', async () => {
