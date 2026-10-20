@@ -18,7 +18,10 @@ import { miniArt } from '@/components/MiniPlayer';
 import { PlayPauseIcon } from '@/components/PlayPauseIcon';
 import { QueueSheet } from '@/components/QueueSheet';
 import { SleepChip, SleepSheet } from '@/components/SleepSheet';
+import { SongMenu } from '@/components/SongMenu';
+import { showToast } from '@/components/Toast';
 import { WaveformProgress } from '@/components/WaveformProgress';
+import { toggleLikeSong, useIsLiked } from '@/library/actions';
 import { useConnectivity } from '@/net/connectivity';
 import { artworkUri, selectCurrent, usePlayer } from '@/player/store';
 import { colors, font, radii } from '@/theme/tokens';
@@ -54,6 +57,9 @@ export default function PlayerScreen() {
   const { online } = useConnectivity();
   const [queueOpen, setQueueOpen] = useState(false);
   const [sleepOpen, setSleepOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const source = usePlayer((s) => s.source);
+  const liked = useIsLiked(song?.youtubeId ?? null);
 
   const artSize = Math.min(W - 64, H * 0.42);
   const artRef = useAnimatedRef<Animated.View>();
@@ -177,8 +183,10 @@ export default function PlayerScreen() {
         <Animated.View style={[styles.content, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 16 }, sheetStyle]}>
           <Animated.View style={[styles.header, chromeStyle]}>
             <IconButton name="keyboard-arrow-down" size={30} onPress={close} label="Close player" />
-            <Text style={styles.headerTitle}>Now playing</Text>
-            <View style={styles.iconButton} />
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {source ? `From ${source.label}` : 'Now playing'}
+            </Text>
+            <IconButton name="more-horiz" size={26} onPress={() => setMenuOpen(true)} label="Song options" />
           </Animated.View>
 
           <View style={styles.artArea}>
@@ -195,14 +203,23 @@ export default function PlayerScreen() {
 
           <Animated.View style={chromeStyle}>
             <View style={styles.titles}>
-              <Text style={styles.title} numberOfLines={1}>
-                {song.title}
-              </Text>
-              <Text style={styles.subtitle} numberOfLines={1}>
-                {song.channel ?? 'Unknown'}
-                {downloaded ? <Text style={{ color: colors.mint }}> · ⬇ offline</Text> : null}
-                {!downloaded && !online ? ' · needs internet' : null}
-              </Text>
+              <View style={styles.titleText}>
+                <Text style={styles.title} numberOfLines={1}>
+                  {song.title}
+                </Text>
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {song.channel ?? 'Unknown'}
+                  {downloaded ? <Text style={{ color: colors.mint }}> · ⬇ offline</Text> : null}
+                  {!downloaded && !online ? ' · needs internet' : null}
+                </Text>
+              </View>
+              <IconButton
+                name={liked ? 'favorite' : 'favorite-border'}
+                size={26}
+                color={liked ? colors.primary : colors.text}
+                onPress={() => void toggleLikeSong(song.youtubeId).catch(() => showToast("Couldn't update Liked songs"))}
+                label={liked ? 'Unlike' : 'Like'}
+              />
             </View>
 
             <View style={styles.progress}>
@@ -256,6 +273,7 @@ export default function PlayerScreen() {
 
       <SleepSheet open={sleepOpen} onClose={() => setSleepOpen(false)} />
       <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />
+      <SongMenu song={menuOpen ? song : null} onClose={() => setMenuOpen(false)} />
     </View>
   );
 }
@@ -265,7 +283,7 @@ const styles = StyleSheet.create({
   base: { backgroundColor: colors.bg },
   content: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 },
-  headerTitle: { color: colors.text, fontFamily: font.semibold, fontSize: 13, opacity: 0.85 },
+  headerTitle: { flex: 1, textAlign: 'center', color: colors.text, fontFamily: font.semibold, fontSize: 13, opacity: 0.85 },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   artArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   art: {
@@ -273,7 +291,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.s3,
     elevation: 16,
   },
-  titles: { paddingHorizontal: 24 },
+  titles: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 24, paddingRight: 14 },
+  titleText: { flex: 1, minWidth: 0 },
   title: { color: colors.text, fontFamily: font.bold, fontSize: 21, letterSpacing: -0.3 },
   subtitle: { color: colors.muted, fontFamily: font.regular, fontSize: 13, marginTop: 2 },
   progress: { paddingHorizontal: 24, paddingTop: 16 },

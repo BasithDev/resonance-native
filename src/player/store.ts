@@ -30,7 +30,9 @@ const RESTART_AFTER_SEC = 3;
 export type PlayerState = {
   queue: QueueState | null;
   status: EngineStatus;
-  playSongs(songs: Song[], index: number, opts?: { shuffle?: boolean }): void;
+  /** Where the current queue was started from (e.g. a playlist), for "From <label>". */
+  source: { label: string } | null;
+  playSongs(songs: Song[], index: number, opts?: { shuffle?: boolean; source?: { label: string } }): void;
   /** Shuffle every playlist song (downloaded ones only when offline). */
   superShuffle(): Promise<'started' | 'nothing-playable'>;
   togglePlay(): void;
@@ -43,6 +45,8 @@ export type PlayerState = {
   enqueue(s: Song): void;
   removeFromQueue(i: number): void;
   moveInQueue(from: number, to: number): void;
+  /** Empties "up next"; the current song keeps playing. */
+  clearUpNext(): void;
   /** The song left the library (download manager): drop it and skip it if playing. */
   onSongRemoved(youtubeId: string): void;
   /**
@@ -153,7 +157,7 @@ export function createPlayerStore(deps: PlayerDeps) {
       loadSeq++;
       source = null;
       deps.engine.pause();
-      set({ queue: null });
+      set({ queue: null, source: null });
     }
 
     function skipAfterFailure(message: string) {
@@ -251,6 +255,7 @@ export function createPlayerStore(deps: PlayerDeps) {
     return {
       queue: null,
       status: IDLE,
+      source: null,
 
       playSongs(songs, index, opts) {
         if (songs.length === 0) return;
@@ -258,6 +263,7 @@ export function createPlayerStore(deps: PlayerDeps) {
         const first = playable(q.items[q.index]) ? q : Q.advance(q, 'user', playable);
         if (!first) return;
         failures = 0;
+        set({ source: opts?.source ?? null });
         go(first);
       },
 
@@ -325,6 +331,13 @@ export function createPlayerStore(deps: PlayerDeps) {
       },
 
       moveInQueue: (from, to) => edit((q) => Q.move(q, from, to)),
+
+      clearUpNext: () =>
+        edit((q) => {
+          const items = q.items.slice(0, q.index + 1); // what already played stays for "previous"
+          const original = q.shuffle ? q.original.filter((s) => items.includes(s)) : items;
+          return { ...q, items, original };
+        }),
 
       onSongUpdated(song) {
         const q = get().queue;

@@ -340,6 +340,42 @@ describe('player store', () => {
     expect(t.engine.pause).toHaveBeenCalled();
   });
 
+  it('playSongs remembers where playback was started from; a plain playSongs forgets it', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a'), song('b')], 0, { source: { label: 'Night Drive' } });
+    expect(t.store.getState().source).toEqual({ label: 'Night Drive' });
+    t.store.getState().next();
+    expect(t.store.getState().source).toEqual({ label: 'Night Drive' }); // same queue, same source
+    t.store.getState().playSongs([song('c')], 0);
+    expect(t.store.getState().source).toBeNull();
+  });
+
+  it('clearUpNext drops everything after the current song, without reloading it', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a'), song('b'), song('c'), song('d')], 1);
+    await flush();
+    t.store.getState().clearUpNext();
+    const q = t.store.getState().queue!;
+    expect(q.items.map((s) => s.youtubeId)).toEqual(['a', 'b']);
+    expect(q.original.map((s) => s.youtubeId)).toEqual(['a', 'b']);
+    expect(currentId(t)).toBe('b');
+    expect(t.engine.load).toHaveBeenCalledTimes(1);
+    t.store.getState().next();
+    expect(currentId(t)).toBe('b'); // nothing up next
+  });
+
+  it('clearUpNext while shuffled also drops the cleared songs from the unshuffled order', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a'), song('b'), song('c')], 0, { shuffle: true });
+    await flush();
+    t.store.getState().clearUpNext();
+    const q = t.store.getState().queue!;
+    expect(q.items.map((s) => s.youtubeId)).toEqual(['a']);
+    expect(q.original.map((s) => s.youtubeId)).toEqual(['a']);
+    t.store.getState().toggleShuffle();
+    expect(t.store.getState().queue!.items.map((s) => s.youtubeId)).toEqual(['a']);
+  });
+
   it('store logs a chunk after 10 s of playing and none while paused', async () => {
     const onListen = jest.fn();
     const t = setup({ onListen });

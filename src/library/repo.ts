@@ -140,6 +140,8 @@ export async function createPlaylist(
 }
 
 export async function renamePlaylist(db: Db, id: string, name: string): Promise<void> {
+  const row = await db.first<{ kind: string }>('SELECT kind FROM playlists WHERE id = ?', [id]);
+  if (id === LIKED_ID || row?.kind === 'liked') throw new Error('The Liked playlist cannot be renamed');
   await db.run('UPDATE playlists SET name = ?, updated_at = ? WHERE id = ?', [name, now(), id]);
 }
 
