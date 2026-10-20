@@ -14,6 +14,8 @@ import { create } from 'zustand';
 import type { Song } from '../library/types';
 import { getConnectivity } from '../net/connectivity';
 import { resolveStream } from '../youtube/client';
+import { logListen } from '../stats/logListen';
+import { createListenTracker } from '../stats/tracker';
 import { engine, type EngineStatus, type PlayerEngine } from './engine';
 import * as Q from './queue';
 import type { QueueState } from './queue';
@@ -52,6 +54,8 @@ export type PlayerDeps = {
   resolveStream: (youtubeId: string) => Promise<{ url: string }>;
   isOnline: () => boolean;
   now?: () => number;
+  /** Receives each chunk of actual playing time (default: the local listens table). */
+  onListen?: (youtubeId: string, durationSec: number, playedAt: number) => void;
 };
 
 const IDLE: EngineStatus = { playing: false, buffering: false, positionSec: 0, durationSec: 0, ended: false, error: null };
@@ -76,6 +80,8 @@ const isLocal = (s: Song) => s.download === 'done' && !!s.filePath;
 export function createPlayerStore(deps: PlayerDeps) {
   const now = deps.now ?? Date.now;
   const playable = (s: Song) => isPlayable(s, deps.isOnline());
+
+  const tracker = createListenTracker(deps.onListen ?? logListen, now);
 
   const urls = new Map<string, { url: string; at: number }>();
   let loadSeq = 0; // bumps on every load; stale async loads drop out
@@ -215,6 +221,7 @@ export function createPlayerStore(deps: PlayerDeps) {
     deps.engine.onStatus((s) => {
       const prev = get().status;
       set({ status: s });
+      tracker.tick(source?.youtubeId ?? null, s.playing && !s.ended);
       if (!source) return; // a load is in flight; these events are about the old song
       if (s.playing) failures = 0;
       if (!s.ended && s.positionSec > 0) lastPosition = s.positionSec;
