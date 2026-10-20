@@ -9,7 +9,7 @@ jest.mock('../net/connectivity', () => ({ getConnectivity: () => ({ online: true
 import type { Song } from '../library/types';
 import type { EngineStatus, PlayerEngine, RemoteCommand } from './engine';
 import { useSleepTimer } from './sleepTimer';
-import { createPlayerStore } from './store';
+import { createPlayerStore, type NowPlaying } from './store';
 
 const song = (id: string, download: Song['download'] = 'done'): Song => ({
   youtubeId: id,
@@ -25,7 +25,12 @@ const song = (id: string, download: Song['download'] = 'done'): Song => ({
   downloadError: null,
 });
 
-function setup(opts: { online?: boolean; shuffleSongs?: Song[]; onListen?: (id: string, sec: number, at: number, playStart: boolean) => void } = {}) {
+function setup(opts: {
+  online?: boolean;
+  shuffleSongs?: Song[];
+  onListen?: (id: string, sec: number, at: number, playStart: boolean) => void;
+  onNowPlaying?: (s: NowPlaying) => void;
+} = {}) {
   let status: EngineStatus = {
     playing: false, buffering: false, positionSec: 0, durationSec: 0, ended: false, error: null,
   };
@@ -55,6 +60,7 @@ function setup(opts: { online?: boolean; shuffleSongs?: Song[]; onListen?: (id: 
   const store = createPlayerStore({ engine, resolveStream, isOnline: () => net.online, now: () => clock.now,
     loadSuperShuffle: async () => opts.shuffleSongs ?? [],
     onListen: opts.onListen,
+    onNowPlaying: opts.onNowPlaying,
   });
   return {
     store,
@@ -426,5 +432,45 @@ describe('superShuffle', () => {
   it('an empty library is nothing-playable', async () => {
     const t = setup();
     expect(await t.store.getState().superShuffle()).toBe('nothing-playable');
+  });
+});
+
+describe('now playing (widget)', () => {
+  it('reports track and play-state changes once each, not on every position tick', async () => {
+    const onNowPlaying = jest.fn();
+    const t = setup({ onNowPlaying });
+    expect(onNowPlaying).toHaveBeenCalledWith({ title: null, artist: null, artworkUri: null, playing: false });
+    const b: Song = { ...song('b'), artPath: '/data/art/b.jpg' };
+    t.store.getState().playSongs([song('a'), b], 0);
+    await flush();
+    // Loading counts as playing (buffering), like togglePlay does.
+    expect(onNowPlaying).toHaveBeenLastCalledWith({
+      title: 'Title a', artist: 'Chan', artworkUri: 'https://img/a.jpg', playing: true,
+    });
+    const calls = onNowPlaying.mock.calls.length;
+    t.emit({ playing: true, buffering: false, positionSec: 1, durationSec: 100 });
+    t.emit({ positionSec: 1.5 });
+    t.emit({ positionSec: 2 });
+    expect(onNowPlaying).toHaveBeenCalledTimes(calls);
+
+    t.emit({ playing: false });
+    expect(onNowPlaying).toHaveBeenCalledTimes(calls + 1);
+    expect(onNowPlaying).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Title a', playing: false }));
+
+    t.store.getState().next();
+    await flush();
+    // Offline art first: the downloaded artwork file, not the thumbnail URL.
+    expect(onNowPlaying).toHaveBeenLastCalledWith({
+      title: 'Title b', artist: 'Chan', artworkUri: 'file:///data/art/b.jpg', playing: true,
+    });
+  });
+
+  it('reports nothing playing when the queue empties', async () => {
+    const onNowPlaying = jest.fn();
+    const t = setup({ onNowPlaying });
+    t.store.getState().playSongs([song('a')], 0);
+    await flush();
+    t.store.getState().onSongRemoved('a');
+    expect(onNowPlaying).toHaveBeenLastCalledWith({ title: null, artist: null, artworkUri: null, playing: false });
   });
 });
