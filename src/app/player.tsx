@@ -17,6 +17,7 @@ import { ArtworkBackdrop } from '@/components/ArtworkBackdrop';
 import { miniArt } from '@/components/MiniPlayer';
 import { PlayPauseIcon } from '@/components/PlayPauseIcon';
 import { QueueSheet } from '@/components/QueueSheet';
+import { SleepChip, SleepSheet } from '@/components/SleepSheet';
 import { WaveformProgress } from '@/components/WaveformProgress';
 import { useConnectivity } from '@/net/connectivity';
 import { artworkUri, selectCurrent, usePlayer } from '@/player/store';
@@ -52,6 +53,7 @@ export default function PlayerScreen() {
   const { togglePlay, next, previous, seek, toggleShuffle, cycleRepeat } = usePlayer.getState();
   const { online } = useConnectivity();
   const [queueOpen, setQueueOpen] = useState(false);
+  const [sleepOpen, setSleepOpen] = useState(false);
 
   const artSize = Math.min(W - 64, H * 0.42);
   const artRef = useAnimatedRef<Animated.View>();
@@ -240,6 +242,10 @@ export default function PlayerScreen() {
               />
             </View>
 
+            <View style={styles.sleep}>
+              <SleepChip onPress={() => setSleepOpen(true)} />
+            </View>
+
             <Pressable style={styles.queueButton} onPress={() => setQueueOpen(true)} accessibilityRole="button">
               <MaterialIcons name="keyboard-arrow-up" size={18} color={colors.muted} />
               <Text style={styles.queueText}>Queue</Text>
@@ -248,6 +254,7 @@ export default function PlayerScreen() {
         </Animated.View>
       </GestureDetector>
 
+      <SleepSheet open={sleepOpen} onClose={() => setSleepOpen(false)} />
       <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />
     </View>
   );
@@ -279,6 +286,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sleep: { paddingTop: 14 },
   queueButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: 18 },
   queueText: { color: colors.muted, fontFamily: font.medium, fontSize: 12 },
 });

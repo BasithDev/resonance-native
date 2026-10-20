@@ -8,6 +8,7 @@ jest.mock('../net/connectivity', () => ({ getConnectivity: () => ({ online: true
 
 import type { Song } from '../library/types';
 import type { EngineStatus, PlayerEngine, RemoteCommand } from './engine';
+import { useSleepTimer } from './sleepTimer';
 import { createPlayerStore } from './store';
 
 const song = (id: string, download: Song['download'] = 'done'): Song => ({
@@ -24,7 +25,7 @@ const song = (id: string, download: Song['download'] = 'done'): Song => ({
   downloadError: null,
 });
 
-function setup(opts: { online?: boolean } = {}) {
+function setup(opts: { online?: boolean; shuffleSongs?: Song[] } = {}) {
   let status: EngineStatus = {
     playing: false, buffering: false, positionSec: 0, durationSec: 0, ended: false, error: null,
   };
@@ -51,7 +52,9 @@ function setup(opts: { online?: boolean } = {}) {
   const resolveStream = jest.fn(async (id: string) => ({ url: `https://stream/${id}?v=${++resolves}` }));
   const net = { online: opts.online ?? true };
   const clock = { now: 1_000_000 };
-  const store = createPlayerStore({ engine, resolveStream, isOnline: () => net.online, now: () => clock.now });
+  const store = createPlayerStore({ engine, resolveStream, isOnline: () => net.online, now: () => clock.now,
+    loadSuperShuffle: async () => opts.shuffleSongs ?? [],
+  });
   return {
     store,
     engine,
@@ -334,5 +337,58 @@ describe('player store', () => {
     t.store.getState().onSongRemoved('a');
     expect(t.store.getState().queue).toBeNull();
     expect(t.engine.pause).toHaveBeenCalled();
+  });
+});
+
+describe('sleep timer in the store', () => {
+  beforeEach(() => useSleepTimer.getState().set(null));
+
+  it('pauses on a status tick past the deadline (no JS timer needed)', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a'), song('b')], 0);
+    await flush();
+    useSleepTimer.getState().set(15, t.clock.now);
+    t.emit({ playing: true, buffering: false, positionSec: 5, durationSec: 100 });
+    expect(t.engine.pause).not.toHaveBeenCalled();
+    t.clock.now += 15 * 60_000; // screen off: the clock moved on, then a tick arrives
+    t.emit({ positionSec: 6 });
+    expect(t.engine.pause).toHaveBeenCalledTimes(1);
+    expect(useSleepTimer.getState().setting).toBeNull();
+  });
+
+  it('endOfSong pauses instead of advancing when the song ends', async () => {
+    const t = setup();
+    t.store.getState().playSongs([song('a'), song('b')], 0);
+    await flush();
+    useSleepTimer.getState().set('endOfSong', t.clock.now);
+    t.emit({ playing: true, positionSec: 50, durationSec: 100 });
+    t.emit({ playing: false, ended: true });
+    await flush();
+    expect(t.engine.pause).toHaveBeenCalled();
+    expect(currentId(t)).toBe('a');
+    expect(t.engine.load).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('superShuffle', () => {
+  it("offline with no downloads returns 'nothing-playable' and does not start", async () => {
+    const t = setup({ online: false, shuffleSongs: [song('a', 'none'), song('b', 'none')] });
+    expect(await t.store.getState().superShuffle()).toBe('nothing-playable');
+    expect(t.store.getState().queue).toBeNull();
+    expect(t.engine.load).not.toHaveBeenCalled();
+  });
+
+  it('offline plays only downloaded songs, shuffled', async () => {
+    const t = setup({ online: false, shuffleSongs: [song('a', 'none'), song('b'), song('c')] });
+    expect(await t.store.getState().superShuffle()).toBe('started');
+    await flush();
+    const q = t.store.getState().queue!;
+    expect(q.shuffle).toBe(true);
+    expect(q.items.map((s) => s.youtubeId).sort()).toEqual(['b', 'c']);
+  });
+
+  it('an empty library is nothing-playable', async () => {
+    const t = setup();
+    expect(await t.store.getState().superShuffle()).toBe('nothing-playable');
   });
 });
