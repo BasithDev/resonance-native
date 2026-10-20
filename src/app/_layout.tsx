@@ -13,6 +13,7 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { ToastHost } from '@/components/Toast';
 import { downloads } from '@/downloads/manager';
@@ -54,6 +55,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <StatusBar style="light" />
+      <OfflineBanner />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen
           name="player"

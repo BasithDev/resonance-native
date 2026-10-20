@@ -369,6 +369,13 @@ export function createDownloadManager(deps: DownloadManagerDeps) {
       await changed(db, [youtubeId]);
     },
 
+    /** Removes every download (done, queued, downloading or failed); the songs stay in the library. */
+    async clearAll() {
+      const db = await deps.getDb();
+      const songs = await listByDownload(db, ['done', 'queued', 'downloading', 'failed']);
+      for (const s of songs) await api.removeDownload(s.youtubeId);
+    },
+
     /** Removes the song from the library: cancels its download and deletes its files. */
     async removeSongCompletely(youtubeId: string) {
       if (job?.youtubeId === youtubeId) stopActive('remove');
