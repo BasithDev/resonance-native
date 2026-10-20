@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -145,8 +144,7 @@ export default function SettingsScreen() {
     <ScrollView
       style={styles.root}
       contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: layout.miniPlayer + 12 }}>
-      {/* Long-press opens the hidden developer screen. */}
-      <Text onLongPress={() => router.push('/dev')} style={styles.title}>Settings</Text>
+      <Text style={styles.title}>Settings</Text>
 
       {/* TODO(Task 15): the Sync section goes here, above Downloads. */}
 
