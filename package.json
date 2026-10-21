@@ -44,7 +44,8 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "release": "bash scripts/release.sh"
   },
   "private": true
 }
