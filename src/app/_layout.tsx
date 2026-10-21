@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { ToastHost } from '@/components/Toast';
+import { UpdateDialog } from '@/components/UpdateDialog';
 import { downloads } from '@/downloads/manager';
 import { usePlayer } from '@/player/store';
 import { colors, layout } from '@/theme/tokens';
@@ -65,6 +66,7 @@ export default function RootLayout() {
       </Stack>
       <FloatingMiniPlayer />
       <ToastHost />
+      <UpdateDialog />
     </GestureHandlerRootView>
   );
 }

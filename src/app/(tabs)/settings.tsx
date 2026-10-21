@@ -12,6 +12,7 @@ import { libraryEvents } from '@/library/events';
 import * as repo from '@/library/repo';
 import { useSettings } from '@/settings/store';
 import { formatAgo } from '@/sync/format';
+import { currentVersion, manualCheckForUpdate } from '@/update/store';
 import * as youtube from '@/youtube/client';
 import { colors, font, layout, radii } from '@/theme/tokens';
 
@@ -166,6 +167,34 @@ function YtdlpRow() {
   );
 }
 
+/** Installed version plus a manual update check; a newer release opens the update dialog. */
+function AppUpdateRow() {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const check = async () => {
+    setBusy(true);
+    setResult(null);
+    const r = await manualCheckForUpdate();
+    setBusy(false);
+    if (r.kind === 'upToDate') setResult("You're up to date");
+    else if (r.kind === 'failed') setResult("Couldn't check — check your connection");
+  };
+
+  return (
+    <View style={styles.row}>
+      <View style={styles.flex}>
+        <Text style={styles.label}>Check for updates</Text>
+        <Text style={styles.hint}>Version {currentVersion()}</Text>
+        {result ? <Text style={styles.hint}>{result}</Text> : null}
+      </View>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={check} hitSlop={8} style={busy && styles.disabled}>
+        <Text style={styles.action}>{busy ? 'Checking…' : 'Check'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const downloadOnCellular = useSettings((s) => s.downloadOnCellular);
@@ -197,6 +226,10 @@ export default function SettingsScreen() {
 
       <Section title="YouTube">
         <YtdlpRow />
+      </Section>
+
+      <Section title="About">
+        <AppUpdateRow />
       </Section>
     </ScrollView>
   );
