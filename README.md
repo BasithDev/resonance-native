@@ -1,6 +1,16 @@
 # Resonance
 
-A personal, offline-first Android music player (Expo SDK 57 / React Native 0.86 / TypeScript). Songs are identified by YouTube ID, downloaded as best-available audio with yt-dlp, and played from the phone. Android only, portrait, dark theme. Sideloaded APK, not published. Personal use only (YouTube ToS).
+A personal, offline-first Android music player (Expo SDK 57 / React Native 0.86 / TypeScript). Songs are identified by YouTube ID, downloaded as best-available audio with yt-dlp, and played from the phone. Android only, portrait, dark theme. Sideloaded APK from GitHub Releases, not on the Play Store. Personal use only (YouTube ToS).
+
+## Download (Android)
+
+**[Download the latest APK](https://github.com/BasithDev/resonance-native/releases/latest)**: open the latest release and tap `resonance-vX.Y.Z.apk`.
+
+1. Download the APK on your Android phone (64-bit).
+2. Open it and allow "Install unknown apps" for your browser when asked.
+3. The app checks for new versions once a day (or from Settings → Check for updates) and shows the changelog when an update is available. Install the new APK over the old one; your library and downloads stay.
+
+See [CHANGELOG.md](CHANGELOG.md) for what's new.
 
 ## Prerequisites
 
@@ -36,6 +46,20 @@ Install on a connected phone:
 ```sh
 adb install -r android/app/build/outputs/apk/release/app-release.apk
 ```
+
+### Publishing a release
+
+APKs are published as GitHub Releases on `BasithDev/resonance-native`; the app's update check reads the latest one.
+
+1. Bump `expo.version` in `app.json` (e.g. `1.0.1`) and `expo.android.versionCode` by 1.
+2. Add a `## v1.0.1` section to `CHANGELOG.md`. It becomes the release notes and the text of the in-app update pop-up.
+3. Commit, then run:
+
+```sh
+npm run release -- 1.0.1
+```
+
+`scripts/release.sh` checks that the version matches `app.json`, the tree is clean, the release does not exist yet, the changelog section exists and the keystore is in place. It then runs the release build above (JDK at `~/.local/jdk/jdk-17.0.20.1+1`, SDK at `~/Android/Sdk`), copies the APK to `dist/resonance-v1.0.1.apk` (git-ignored), tags `v1.0.1`, pushes the tag and creates the GitHub release with `gh` (must be logged in), marked as latest.
 
 ### Keystore
 
